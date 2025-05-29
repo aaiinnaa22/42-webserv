@@ -23,6 +23,8 @@ void startServer()
 	std::cout << "Message: " << buffer << std::endl;
 
 	//need to send message back here if it was valid message
+	std::string response = "Viva la 42\n"; // test message
+	send(clientfd, response.c_str(), response.size(), 0);
 
 	close(serverfd);
 }
