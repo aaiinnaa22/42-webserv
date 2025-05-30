@@ -1,4 +1,5 @@
 #include "../inc/Server.hpp"
+#include "../inc/HttpRequest.hpp"
 
 void startServer()
 {
@@ -20,8 +21,9 @@ void startServer()
 
 	//PARSING THE HTTP MESSAGE STATRS HERE ??
 
+	HttpRequest req1;
 	std::cout << "Message: " << buffer << std::endl;
-
+	req1.parse(buffer);
 	//need to send message back here if it was valid message
 	std::string response = "Viva la 42\n"; // test message
 	send(clientfd, response.c_str(), response.size(), 0);
