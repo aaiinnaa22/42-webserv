@@ -4,12 +4,14 @@ all: $(NAME)
 CPP := c++
 FLAGS := -Wall -Wextra -Werror -std=c++11
 
-SOURCE := src/main.cpp src/server.cpp
+SOURCE := src/main.cpp \
+aina_test_dont_del/test_server.cpp
+#src/server.cpp
 OBJ := $(SOURCE:.cpp=.o)
 HEADERS := inc/server.hpp
 
 $(NAME) : $(OBJ)
-	$(CPP) $(FLAGS) $(OBJ) -o $(NAME) 
+	$(CPP) $(FLAGS) $(OBJ) -o $(NAME)
 
 %.o : %.cpp $(HEADERS)
 	$(CPP) $(FLAGS) -c $< -o $@
