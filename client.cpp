@@ -22,7 +22,13 @@ int main()
             sizeof(serverAddress));
 
     // sending data
-    const char* message = "GET /index.html HTTP/1.1";
+    const char* message =
+    "POST /users HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "Content-Type: application/x-www-form-urlencoded\r\n"
+    "Content-Length: 49\r\n"
+    "\r\n"
+    "name=FirstName+LastName&email=bsmth%40example.com";
     send(clientSocket, message, strlen(message), 0);
 
     // closing socket
