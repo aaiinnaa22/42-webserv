@@ -13,7 +13,7 @@ void	HttpRequest::parse(const std::string &request)
 	//check if method is GET POST OR DELETE, 405 if it's not
     path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
     httpVersion = line.substr(pathEnd + 1);
-
+	std::cout << "\nFrom parsing:\n";
 	std::cout << "method: " << method << std::endl;
 	std::cout << "path: " << path << std::endl;
 	std::cout << "http ver: " << httpVersion << std::endl;
