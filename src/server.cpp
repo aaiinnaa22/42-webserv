@@ -16,58 +16,87 @@ void Server::set_non_blocking(int fd)
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-void Server::handle_epoll_event(struct epoll_event *events, char *buffer)
+void Server::handle_epoll_event(struct epoll_event *events)
 {
 	int fd;
+	char buffer[1024] = {0};
 	struct epoll_event ev;
-    ev.events = EPOLLIN;
-    
-	struct sockaddr_in addr;
+    ev.events = EPOLLIN | EPOLLHUP | EPOLLET;
+
+    struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 
 	for(int i = 0; i < _read_count; i++)
 	{
 		fd = events[i].data.fd;
-		//set_non_blocking(fd);
-		if ((fd == _serverfd) && (events[i].events & EPOLLIN))
+
+		if ((events[i].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)))
 		{
-			std::cout << "fd index is: " << fd << std::endl;
-			_clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
-			//set_non_blocking(_clientfd);
-			ev.data.fd = _clientfd;
-			epoll_ctl(_epollfd, EPOLL_CTL_ADD, _clientfd, &ev);
+			std::cout << "Connection closed: " << fd << std::endl;
+			epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+			close(fd);
+			continue ;
+		}
+
+		else if ((fd == _serverfd) && (events[i].events & EPOLLIN))
+		{
+			int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
+			if (clientfd < 0){
+				//add error here
+				close(clientfd);
+			}
+			set_non_blocking(clientfd);
+
 			
-			std::cout << "New connection: " << std::endl;
-			//std::string response = "Viva la 42\n"; // test message
-			//send(_clientfd, response.c_str(), response.size(), 0);
+			ev.data.fd = clientfd;
+			if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
+				//error
+				close(clientfd);
+			}
+			
+			// Just here to print information;
+			uint16_t src_port = ntohs(addr.sin_port);
+			std::cout << "New connection ip: " << (struct sockaddr *)&addr;
+			std::cout << "Port: " << src_port << std::endl;
 		}
 		else if ((events[i].events & EPOLLIN))
-		{{{
-			//read(fd,buffer,1024);
-			recv(_clientfd, buffer, sizeof(buffer),0);
+		{
+
+			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
+			// if buffer is empty after recv it means client closed the connection???
 			//NEW SPOT FOR PARSING
-			std::cout << "Message: " << buffer << std::endl;
-			epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-		}}}
+			
+			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+
+			if (bytes_read == 0) {
+                // Connection closed by client
+                std::cout << "Connection closed by client: " << fd << std::endl;
+                epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+                close(fd);
+			}
+			else	
+				std::cout << "Message: " << buffer << std::endl;
+		}
 	}
 }
 
 void Server::start_epoll()
 {
 	struct epoll_event events[100]; // FIgure better number here, Numeber of events epoll_wait can return?
-	char buffer[1024] = {0};
+	
 
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 
 	struct epoll_event ev;
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN | EPOLLHUP | EPOLLET;
 	ev.data.fd = _serverfd;
 	epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev);
 	
 	while(1)
 	{
 		_read_count = epoll_wait(_epollfd, events, 42, -1); // returns number of events that are ready to be handled
-		handle_epoll_event(events, buffer);
+		if (_read_count != 0)
+			handle_epoll_event(events);
 		//std::cout << _read_count << std::endl;
 	}
 	//close(_serverfd); 

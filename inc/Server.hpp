@@ -16,13 +16,13 @@ class Server {
         int _serverfd;
         int _epollfd;
         int _read_count;
-        int _clientfd; 
+        int _clientfd; //unused?? 
     public:
         Server();
         ~Server();
 
         void set_non_blocking(int fd);
-        void handle_epoll_event(struct epoll_event *events, char *buffer);
+        void handle_epoll_event(struct epoll_event *events);
         void start_epoll();
         void startServer();
 };
