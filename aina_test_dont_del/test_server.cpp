@@ -24,7 +24,10 @@ void startServer()
 		//handle http request
 
 		std::cout << "Message: " << buffer << std::endl;
+		char *response;
 
+		response = "HTTP/1.1 200 OK\r\n\r\n<h1>Hello world!</h1>";
+		send(clientfd, response, 41, 0);
 		//need to send message back here if it was valid message
 	}
 
