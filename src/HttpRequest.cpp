@@ -13,6 +13,7 @@ void	HttpRequest::parse(const std::string &request)
 	//check if method is GET POST OR DELETE, 405 if it's not
     path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
     httpVersion = line.substr(pathEnd + 1);
+	//the prints are just checks - comment out if necessary
 	std::cout << "\nFrom parsing:\n";
 	std::cout << "method: " << method << std::endl;
 	std::cout << "path: " << path << std::endl;
@@ -33,10 +34,26 @@ void	HttpRequest::parse(const std::string &request)
 			headers[key] = value;
 		}
 	}
+	//another print for checking
 	for (const auto& header : headers)
 	{
 		std::cout << header.first << ": " << header.second << "\n";
 	}
+	if (headers.count("Content-Length"))
+	{
+		int length = std::stoi(headers["Content-Length"]);
+		body.resize(length);
+		stream.read(&body[0], length);
+		if (stream.gcount() < length) 
+		{
+            throw std::runtime_error("400 Bad Request: Body incomplete");
+        }// incomplete read check
+	}
+	//another print for checking
+	if (!body.empty())
+	{
+        std::cout << "Body: " << body << "\n";
+    }
 }
 
 //ERRORS: 

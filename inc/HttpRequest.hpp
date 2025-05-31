@@ -13,6 +13,7 @@ class HttpRequest
 		std::string path;
 		std::string httpVersion;
 		std::map<std::string, std::string> headers;
+		std::string	body;
 	public:
 		void	parse(const std::string& request);
 		std::string	getMethod();
