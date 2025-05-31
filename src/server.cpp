@@ -24,6 +24,9 @@ void startServer()
 	HttpRequest req1;
 	std::cout << "Message from startServer: \n" << buffer << std::endl;
 	req1.parse(buffer);
+	//Aina
+	req1.doRequest();
+
 	//need to send message back here if it was valid message
 	std::string response = "Viva la 42\n"; // test message
 	send(clientfd, response.c_str(), response.size(), 0);

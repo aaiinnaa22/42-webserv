@@ -44,7 +44,7 @@ void	HttpRequest::parse(const std::string &request)
 		int length = std::stoi(headers["Content-Length"]);
 		body.resize(length);
 		stream.read(&body[0], length);
-		if (stream.gcount() < length) 
+		if (stream.gcount() < length)
 		{
             throw std::runtime_error("400 Bad Request: Body incomplete");
         }// incomplete read check
@@ -56,7 +56,55 @@ void	HttpRequest::parse(const std::string &request)
     }
 }
 
-//ERRORS: 
+//Aina
+void HttpRequest::sendResponse(std::string status)
+{
+	ssize_t sending;
+	std::string response;
+
+	response =
+	"HTTP/1.1 " + status + "\r\n" +
+	"\r\n" +
+	fileContent;
+	//header aswell in response
+
+}
+
+void HttpRequest::methodGet(void)
+{
+	ssize_t charsRead;
+	int fd;
+	std::vector<char> fileContent;
+
+	path = "." + path;
+	fd = open(path.c_str(), O_RDONLY); //nonblock?
+	//error check
+	while (charsRead = read(fd, fileContent.data(), 1000) > 0)
+		;
+	//error check read
+
+
+}
+
+void HttpRequest::methodPost(void){}
+
+void HttpRequest::methodDelete(void){}
+
+void HttpRequest::doCgi(void){};
+void HttpRequest::doRequest(void)
+{
+	if (method == "GET")
+	{
+		//if (path.ends_with(".py"))
+		//	;//CGI
+		//else
+			methodGet();
+	}
+}
+
+//Aina end
+
+//ERRORS:
 //CLIENT ERROR RESPONSES
 //400 Bad Request
 //403 Forbidden
