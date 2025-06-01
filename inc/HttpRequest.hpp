@@ -15,11 +15,12 @@ class HttpRequest
 		std::string httpVersion;
 		std::map<std::string, std::string> headers;
 		std::string	body;
+		int clientfd;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
 		void doCgi();
-		void sendResponse(std::string status);
+		void sendResponse(std::string status, std::string body);
 
 	public:
 		void	parse(const std::string& request);
@@ -27,4 +28,5 @@ class HttpRequest
 		std::string	getPath();
 		std::string	getHttpVersion();
 		void	doRequest(void);
+		HttpRequest(int fdOfClient);
 };

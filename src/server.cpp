@@ -21,15 +21,15 @@ void startServer()
 
 	//PARSING THE HTTP MESSAGE STATRS HERE ??
 
-	HttpRequest req1;
+	HttpRequest req1(clientfd);
 	std::cout << "Message from startServer: \n" << buffer << std::endl;
 	req1.parse(buffer);
 	//Aina
 	req1.doRequest();
 
 	//need to send message back here if it was valid message
-	std::string response = "Viva la 42\n"; // test message
-	send(clientfd, response.c_str(), response.size(), 0);
+	//std::string response = "Viva la 42\n"; // test message
+	//send(clientfd, response.c_str(), response.size(), 0);
 
 	close(serverfd);
 }

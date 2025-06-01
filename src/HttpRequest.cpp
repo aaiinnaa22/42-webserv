@@ -57,33 +57,45 @@ void	HttpRequest::parse(const std::string &request)
 }
 
 //Aina
-void HttpRequest::sendResponse(std::string status)
+
+//param constructor with client fd
+HttpRequest::HttpRequest(int fdOfClient) :clientfd(fdOfClient) {}
+
+void HttpRequest::sendResponse(std::string status, std::string body)
 {
 	ssize_t sending;
 	std::string response;
+	std::string contentType;
+	std::string contentLength;
+
+	contentType = "Content-Type: text/html"; //get based on file extension
+	contentLength = "Content-Length: " + std::to_string(body.size());
 
 	response =
 	"HTTP/1.1 " + status + "\r\n" +
+	contentType + "\r\n" +
+	contentLength + "\r\n" +
 	"\r\n" +
-	fileContent;
-	//header aswell in response
-
+	body;
+	sending = send(clientfd, response.c_str(), response.size(), 0);
+	//error check
 }
 
 void HttpRequest::methodGet(void)
 {
 	ssize_t charsRead;
 	int fd;
-	std::vector<char> fileContent;
+	std::string fileContent;
+	char buffer[1000];
 
 	path = "." + path;
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
 	//error check
-	while (charsRead = read(fd, fileContent.data(), 1000) > 0)
-		;
+	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
+		fileContent.append(buffer, charsRead);
 	//error check read
-
-
+	close(fd);
+	sendResponse("200 OK", fileContent);
 }
 
 void HttpRequest::methodPost(void){}
@@ -93,6 +105,8 @@ void HttpRequest::methodDelete(void){}
 void HttpRequest::doCgi(void){};
 void HttpRequest::doRequest(void)
 {
+	if (path == "/")
+		path = "/index.html";
 	if (method == "GET")
 	{
 		//if (path.ends_with(".py"))
