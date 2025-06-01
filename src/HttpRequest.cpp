@@ -59,24 +59,25 @@ void	HttpRequest::parse(const std::string &request)
 //Aina
 
 //param constructor with client fd
+
+
 HttpRequest::HttpRequest(int fdOfClient) :clientfd(fdOfClient) {}
 
-void HttpRequest::sendResponse(std::string status, std::string body)
+
+void HttpRequest::sendResponse(std::string status, std::string body, std::string contentType)
 {
 	ssize_t sending;
 	std::string response;
-	std::string contentType;
 	std::string contentLength;
 
-	contentType = "Content-Type: text/html"; //get based on file extension
+	//contentType = "Content-Type: text/html"; //get based on file extension
 	contentLength = "Content-Length: " + std::to_string(body.size());
 
 	response =
 	"HTTP/1.1 " + status + "\r\n" +
 	contentType + "\r\n" +
 	contentLength + "\r\n" +
-	"\r\n" +
-	body;
+	"\r\n" + body;
 	sending = send(clientfd, response.c_str(), response.size(), 0);
 	//error check
 }
@@ -87,15 +88,19 @@ void HttpRequest::methodGet(void)
 	int fd;
 	std::string fileContent;
 	char buffer[1000];
+	std::string contentType;
 
 	path = "." + path;
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
 	//error check
+	//buffer has size of content-type header gotten from client?
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		fileContent.append(buffer, charsRead);
 	//error check read
 	close(fd);
-	sendResponse("200 OK", fileContent);
+	//contentType = contentTypeIs(path); //add private members to class?
+	contentType = "Content-Type: text/html";
+	sendResponse("200 OK", fileContent, contentType);
 }
 
 void HttpRequest::methodPost(void){}

@@ -20,7 +20,7 @@ class HttpRequest
 		void methodPost();
 		void methodDelete();
 		void doCgi();
-		void sendResponse(std::string status, std::string body);
+		void sendResponse(std::string status, std::string body, std::string contentType);
 
 	public:
 		void	parse(const std::string& request);
