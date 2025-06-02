@@ -59,9 +59,7 @@ void	HttpRequest::parse(const std::string &request)
 //Aina
 
 //param constructor with client fd
-
-
-HttpRequest::HttpRequest(int fdOfClient) :clientfd(fdOfClient) {}
+HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 
 
 void HttpRequest::sendResponse(std::string status)
@@ -70,36 +68,46 @@ void HttpRequest::sendResponse(std::string status)
 	std::string response;
 	std::string contentLength;
 
-	//contentType = "Content-Type: text/html"; //get based on file extension
-	contentLength = "Content-Length: " + std::to_string(responseBody.size());
+	contentLength = std::to_string(responseBody.size());
 
 	response =
 	"HTTP/1.1 " + status + "\r\n" +
-	responseContentType + "\r\n" +
-	contentLength + "\r\n" +
+	"Content-Type: " + responseContentType + "\r\n" +
+	"Content-Length: " + contentLength + "\r\n" +
 	"\r\n" + responseBody;
 	sending = send(clientfd, response.c_str(), response.size(), 0);
 	//error check
+}
+
+void HttpRequest::setContentType(std::string path)
+{
+	size_t dot;
+	std::string fileExtension;
+
+	dot = path.rfind(".");
+	fileExtension = path.substr(dot + 1, path.length()); //try catch in main
+	if (fileExtension == "html")
+		responseContentType = "text/html";
+	else
+		throw std::runtime_error("some error response"); //fix
 }
 
 void HttpRequest::methodGet(void)
 {
 	ssize_t charsRead;
 	int fd;
-	std::string fileContent;
 	char buffer[1000];
-	std::string contentType;
 
 	path = "." + path;
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
-	//error check
-	//buffer has size of content-type header gotten from client?
+	if (fd == -1)
+		throw std::runtime_error("404 Not found");
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
-		fileContent.append(buffer, charsRead);
-	//error check read
+		responseBody.append(buffer, charsRead);
 	close(fd);
-	//contentType = contentTypeIs(path); //add private members to class?
-	contentType = "Content-Type: text/html";
+	if (charsRead == -1)
+		throw std::runtime_error("500 Internal Server Error"); //?
+	setContentType(path);
 	sendResponse("200 OK");
 }
 
@@ -107,7 +115,8 @@ void HttpRequest::methodPost(void){}
 
 void HttpRequest::methodDelete(void){}
 
-void HttpRequest::doCgi(void){};
+void HttpRequest::doCgi(void){}
+
 void HttpRequest::doRequest(void)
 {
 	if (path == "/")

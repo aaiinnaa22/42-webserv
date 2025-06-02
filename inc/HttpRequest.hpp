@@ -23,6 +23,7 @@ class HttpRequest
 		void methodDelete();
 		void doCgi();
 		void sendResponse(std::string status);
+		void setContentType(std::string path);
 
 	public:
 		void	parse(const std::string& request);
@@ -30,5 +31,5 @@ class HttpRequest
 		std::string	getPath();
 		std::string	getHttpVersion();
 		void	doRequest(void);
-		HttpRequest(int fdOfClient);
+		HttpRequest(int fd);
 };
