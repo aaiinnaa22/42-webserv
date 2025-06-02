@@ -64,20 +64,20 @@ void	HttpRequest::parse(const std::string &request)
 HttpRequest::HttpRequest(int fdOfClient) :clientfd(fdOfClient) {}
 
 
-void HttpRequest::sendResponse(std::string status, std::string body, std::string contentType)
+void HttpRequest::sendResponse(std::string status)
 {
 	ssize_t sending;
 	std::string response;
 	std::string contentLength;
 
 	//contentType = "Content-Type: text/html"; //get based on file extension
-	contentLength = "Content-Length: " + std::to_string(body.size());
+	contentLength = "Content-Length: " + std::to_string(responseBody.size());
 
 	response =
 	"HTTP/1.1 " + status + "\r\n" +
-	contentType + "\r\n" +
+	responseContentType + "\r\n" +
 	contentLength + "\r\n" +
-	"\r\n" + body;
+	"\r\n" + responseBody;
 	sending = send(clientfd, response.c_str(), response.size(), 0);
 	//error check
 }
@@ -100,7 +100,7 @@ void HttpRequest::methodGet(void)
 	close(fd);
 	//contentType = contentTypeIs(path); //add private members to class?
 	contentType = "Content-Type: text/html";
-	sendResponse("200 OK", fileContent, contentType);
+	sendResponse("200 OK");
 }
 
 void HttpRequest::methodPost(void){}
