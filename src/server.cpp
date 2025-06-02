@@ -15,8 +15,7 @@
 	int fcntl(int fd, int op, ...) /* arg
 	Used to modify behavior of already opened file descriptors.
 	F_GETFL (void)
-        Return (as the function result) the file access mode and
-        the file status flags; arg is ignored.
+        Return (as the function result) the file access mode and the file status flags; arg is ignored.
 	F_SETFL (int)
         Set the file status flags to the value specified by arg.
 	O_NONBLOCK
@@ -30,18 +29,18 @@
 	*/
 void Server::set_non_blocking(int fd) 
 {
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(fd, F_GETFL, 0); // F_GETFL asks for the current flags on the file descriptor fd
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK); // We set the new flags of the fd to be = old flags + the O_NONBLOCK flag using bitwise OR (|).
 }
 /*
-	Here we loop through the events if epoll_wait(), returned as ready to be handled. Number of events
-	to be handled is _read_count. If the event is coming from the main server socket we know its a new connection
-	and we add it to the epoll list as new socket that should be listened. If the event is coming from different fd we know
-	the even is coming from one of the connections we added the epoll interest list. We can check the type of the event
+	Here we loop through the events if epoll_wait() returned positive value, which means we have fd's that are ready to be handled. Number of events
+	to be handled is _read_count. If the event is coming from the main server socket we know it's a new connection
+	and we add it to the epoll list as new socket that we can listen. If the event is coming from different fd we know
+	the even is coming from one of the connections we previously added to the epoll interest list. We can check the type of the event
 	example (EPOLLIN) and then handle it how we choose (In this case we know its a message and we can start parsing).
-	EPOLLHUP should mean the connection closes (I think), but is currently not working, challenge try to fix it :).ADJ_TAI
-	If we read zero bytes we remove fd from epoll list and close the fd -> this will close the connnection NOTE! this should
-	probably not work like this.
+	EPOLLHUP should mean the connection got closed (I think), but currently I can't get it working, challenge try to fix it :).
+	If we read zero bytes from recv() we remove the fd from epoll list and close the fd -> this will close the connnection NOTE! this should
+	probably not work like this, but so far the only way I have managed to close the connections in correct time.
 
 	.......Recv
 	ssize_t recv(int socket, void *buffer, size_t length, int flags);
