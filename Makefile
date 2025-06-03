@@ -4,9 +4,9 @@ all: $(NAME)
 CPP := c++
 FLAGS := -Wall -Wextra -Werror -std=c++11
 
-SOURCE := src/main.cpp src/server.cpp src/HttpRequest.cpp
+SOURCE := src/main.cpp src/server.cpp src/HttpRequest.cpp src/ConfigParse.cpp
 OBJ := $(SOURCE:.cpp=.o)
-HEADERS := inc/server.hpp inc/HttpRequest.hpp
+HEADERS := inc/server.hpp inc/HttpRequest.hpp inc/ConfigParse.cpp
 
 $(NAME) : $(OBJ)
 	$(CPP) $(FLAGS) $(OBJ) -o $(NAME) 
