@@ -1,5 +1,6 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
+#include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
 
  Server::Server(){
 	 int _on = 1;
@@ -75,8 +76,11 @@ void Server::handle_epoll_event(struct epoll_event *events)
 			}
 			// Just here to print information;
 			uint16_t src_port = ntohs(addr.sin_port);
-			std::cout << "New connection ip: " << (struct sockaddr *)&addr;
-			std::cout << "Port: " << src_port << std::endl;
+			in_addr_t saddr = addr.sin_addr.s_addr;
+			char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
+			const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
+			std::cout << "New connection ip: " << cip;
+			std::cout << " Port: " << src_port << std::endl;
 		}
 		else if ((events[i].events & EPOLLIN))
 		{
