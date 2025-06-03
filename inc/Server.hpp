@@ -16,7 +16,7 @@ class Server {
         int _serverfd;
         int _epollfd;
         int _read_count;
-        int _clientfd; //unused?? 
+        int _clientfd; //unused???
     public:
         Server();
         ~Server();
