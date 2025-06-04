@@ -3,6 +3,7 @@
 #include <sstream>
 #include <map>
 #include <fcntl.h>     // open
+#include <filesystem> //for remove in DELETE method, allowed?
 
 class HttpRequest
 {
