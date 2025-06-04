@@ -89,9 +89,22 @@ void Server::handle_epoll_event(struct epoll_event *events)
 			//NEW SPOT FOR PARSING
 			HttpRequest req1(fd);
 			std::cout << "Message from startServer: \n" << buffer << std::endl;
-			req1.parse(buffer);
-			//Aina
-			req1.doRequest();
+			try 
+			{
+				req1.parse(buffer);
+				//Aina
+				req1.doRequest();
+			}
+			catch(std::exception& e)
+			{
+				//temporary
+				std::string response;
+				response = "HTTP/1.1\r\n\r\n<h1>ERROR ";
+				response += e.what();
+				response += "</h1>";
+				send(fd, response.c_str(), response.size(), 0);
+
+			}
 			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {
                 std::cout << "Connection closed by client: " << fd << std::endl;

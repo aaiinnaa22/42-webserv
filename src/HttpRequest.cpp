@@ -14,10 +14,10 @@ void	HttpRequest::parse(const std::string &request)
     path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
     httpVersion = line.substr(pathEnd + 1);
 	//the prints are just checks - comment out if necessary
-	std::cout << "\nFrom parsing:\n";
-	std::cout << "method: " << method << std::endl;
-	std::cout << "path: " << path << std::endl;
-	std::cout << "http ver: " << httpVersion << std::endl;
+	//std::cout << "\nFrom parsing:\n";
+	//std::cout << "method: " << method << std::endl;
+	//std::cout << "path: " << path << std::endl;
+	//std::cout << "http ver: " << httpVersion << std::endl;
 	//throw 505 if version is not 1.1????
 	//headers
 	//std::map<std::string, std::string> headers;
@@ -35,10 +35,10 @@ void	HttpRequest::parse(const std::string &request)
 		}
 	}
 	//another print for checking
-	for (const auto& header : headers)
-	{
-		std::cout << header.first << ": " << header.second << "\n";
-	}
+	//for (const auto& header : headers)
+	//{
+	//	std::cout << header.first << ": " << header.second << "\n";
+	//}
 	if (headers.count("Content-Length"))
 	{
 		int length = std::stoi(headers["Content-Length"]);
@@ -50,10 +50,10 @@ void	HttpRequest::parse(const std::string &request)
         }// incomplete read check
 	}
 	//another print for checking
-	if (!body.empty())
-	{
-        std::cout << "Body: " << body << "\n";
-    }
+	//if (!body.empty())
+	//{
+    //    std::cout << "Body: " << body << "\n";
+    //}
 }
 
 //Aina
@@ -89,9 +89,10 @@ void HttpRequest::setContentType(std::string path)
 	if (fileExtension == "html")
 		responseContentType = "text/html";
 	else
-		throw std::runtime_error("some error response"); //fix
+		throw std::runtime_error("415 Unsupported Media Type"); //?
 }
 
+//! poll for read and open
 void HttpRequest::methodGet(void)
 {
 	ssize_t charsRead;
@@ -102,6 +103,7 @@ void HttpRequest::methodGet(void)
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 		throw std::runtime_error("404 Not found");
+	std::cout << "file " << path << " opened" << std::endl;
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, charsRead);
 	close(fd);
@@ -111,14 +113,63 @@ void HttpRequest::methodGet(void)
 	sendResponse("200 OK");
 }
 
-void HttpRequest::methodPost(void){}
+//EPOLL!!!
+void HttpRequest::methodPost(void)
+{
+	//file name has to be like hey, not /hey????
+	ssize_t charsWritten;
+	int fd;
+	unsigned long contentLength;
 
-void HttpRequest::methodDelete(void){}
+	while (true) //clean up ./ or similar
+	{
+		size_t pos = path.find("./");
+		if (pos == std::string::npos)
+			break ;
+		path.erase(pos, 2);
+	}
+	auto it = headers.find("Content-Length");
+	if (it != headers.end())
+		contentLength = std::stoul(it->second);
+	else 
+		throw std::runtime_error("411 Length Required");
+	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+	if (fd == -1)
+		throw std::runtime_error("500 Internal Server Error"); //?
+	charsWritten = write(fd, body.c_str(), contentLength);
+	close(fd);
+	if (charsWritten == -1)
+		throw std::runtime_error("500 Internal Server Error"); //?
+}
+
+void HttpRequest::methodDelete(void)
+{
+	bool removed;
+
+	try 
+	{
+		removed = std::filesystem::remove(path);
+		if (removed)
+			throw std::runtime_error("200 OK"); //???
+		else 
+			throw std::runtime_error("404 Not Found");
+	}
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		throw std::runtime_error("403 Forbidden");
+	}
+}
 
 void HttpRequest::doCgi(void){}
 
 void HttpRequest::doRequest(void)
 {
+	//security issue check
+	if (path.empty() || 
+	path.find("/..") != std::string::npos || 
+	path.find("../") != std::string::npos ||
+	path == "..")
+		throw std::runtime_error("400 Bad Request");
 	if (path == "/")
 		path = "/index.html";
 	if (method == "GET")
@@ -128,6 +179,10 @@ void HttpRequest::doRequest(void)
 		//else
 			methodGet();
 	}
+	else if (method == "POST")
+		methodPost();
+	else if (method == "DELETE")
+		methodDelete();
 }
 
 //Aina end
