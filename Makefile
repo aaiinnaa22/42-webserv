@@ -2,7 +2,7 @@ NAME = webserver
 all: $(NAME)
 
 CPP := c++
-FLAGS := -Wall -Wextra -Werror -std=c++11
+FLAGS := -Wall -Wextra -Werror -std=c++17
 
 SOURCE := src/main.cpp src/server.cpp src/HttpRequest.cpp src/ConfigParse.cpp
 OBJ := $(SOURCE:.cpp=.o)
