@@ -111,8 +111,6 @@ void Server::handle_epoll_event(struct epoll_event *events)
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
                 close(fd);
 			}
-			else	
-				std::cout << "Message: " << buffer << std::endl;
 			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
