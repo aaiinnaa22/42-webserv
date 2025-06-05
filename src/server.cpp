@@ -1,6 +1,9 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
 #include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
+#include <stdlib.h>
+#include <cstring>
+#include <errno.h>
 
  Server::Server(){
 	 int _on = 1;
@@ -234,18 +237,30 @@ void Server::start_epoll()
 void Server::startServer()
 {
 	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (_serverfd < 0){
+		throw std::runtime_error("Error! Failed to create socket"); 
+	}
+	// at this point I have serverfd open so it needs to be closed.
 	set_non_blocking(_serverfd);
-
-	int rc = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
-
-	sockaddr_in serverAddress; // memset struct to 0 ??
+	int check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
+	if (check < 0){
+		throw std::runtime_error("Error! Failed to create setsockopt");
+	}
+	struct sockaddr_in serverAddress; // memset struct to 0 ??
+	bzero(&serverAddress, sizeof(serverAddress));
+	//memset(&serverAddress, '0', sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
 	serverAddress.sin_port = htons(1234); // random working port in Hive
 	serverAddress.sin_addr.s_addr = INADDR_ANY; // All possible available ip addresses
-
-	bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-
-	listen(_serverfd, 5);
+	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+	if (check == -1){
+		std::cout << errno << std::endl;
+		throw std::runtime_error("Error! Failed to bind server socket");
+	}
+	check = listen(_serverfd, 5);
+	if (check < 0){
+		throw std::runtime_error("Error! Failed to start listening server socket");
+	}
 	start_epoll();
 	close(_serverfd);
 }
