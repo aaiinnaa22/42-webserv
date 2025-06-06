@@ -99,6 +99,9 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 
+	auto it = headers.find("Host"); //nginx requires Host as a header for get?
+	if (it == headers.end())
+		throw std::runtime_error("400 Bad Request");
 	path = "." + path;
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
@@ -116,18 +119,12 @@ void HttpRequest::methodGet(void)
 //EPOLL!!!
 void HttpRequest::methodPost(void)
 {
-	//file name has to be like hey, not /hey????
 	ssize_t charsWritten;
 	int fd;
 	unsigned long contentLength;
 
-	while (true) //clean up ./ or similar
-	{
-		size_t pos = path.find("./");
-		if (pos == std::string::npos)
-			break ;
-		path.erase(pos, 2);
-	}
+	if (path[0] != '/') //nginx needs /??
+	 throw std::runtime_error("400 Bad Request"); 
 	auto it = headers.find("Content-Length");
 	if (it != headers.end())
 		contentLength = std::stoul(it->second);
@@ -160,7 +157,8 @@ void HttpRequest::methodDelete(void)
 	}
 }
 
-void HttpRequest::doCgi(void){}
+void HttpRequest::doCgi(void)
+{}
 
 void HttpRequest::doRequest(void)
 {
@@ -177,16 +175,14 @@ void HttpRequest::doRequest(void)
 		//if (path.ends_with(".py"))
 		//	;//CGI
 		//else
-		try{
-			methodGet(); }
-		catch (const std::exception& e) {
-				sendResponse(e.what());
-		}
+			methodGet();
 	}
 	else if (method == "POST")
 		methodPost();
 	else if (method == "DELETE")
 		methodDelete();
+	else 
+	 throw std::runtime_error("405 Method not allowed");
 }
 
 //Aina end
