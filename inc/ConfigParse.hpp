@@ -12,10 +12,20 @@ class ConfigParse
 		int	parseServerBlock(std::ifstream &file);
 };
 
+struct LocationConfig
+{
+	std::string path;
+	std::string root;
+	std::string index;
+	std::vector<std::string> methods;
+};
+
 struct ServerConfig
 {
-	int			listen_port;
+	int	listen_port;
+	int	max_client_body_size;
+	int	max_client_header_size;
 	std::string host;
 	std::vector<std::string> server_names;
-	std::string root;
+	std::vector<LocationConfig> locations;
 };
