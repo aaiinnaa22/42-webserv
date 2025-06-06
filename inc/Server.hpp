@@ -21,9 +21,9 @@ class Server {
         Server();
         ~Server();
 
-        void set_non_blocking(int fd);
+        int set_non_blocking(int fd);
         void handle_epoll_event(struct epoll_event *events);
-        void start_epoll();
+        int start_epoll();
         void startServer();
 };
 
