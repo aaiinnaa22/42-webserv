@@ -177,7 +177,11 @@ void HttpRequest::doRequest(void)
 		//if (path.ends_with(".py"))
 		//	;//CGI
 		//else
-			methodGet();
+		try{
+			methodGet(); }
+		catch (const std::exception& e) {
+				sendResponse(e.what());
+		}
 	}
 	else if (method == "POST")
 		methodPost();

@@ -1,6 +1,9 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
 #include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
+#include <stdlib.h>
+#include <cstring>
+#include <errno.h>
 
  Server::Server(){
 	 int _on = 1;
@@ -28,10 +31,15 @@
 		This youtube video has some nice visuals on how non blocking I/O works.
 		https://www.youtube.com/watch?v=wB9tIg209-8
 	*/
-void Server::set_non_blocking(int fd) 
+int Server::set_non_blocking(int fd) 
 {
-    int flags = fcntl(fd, F_GETFL, 0); // F_GETFL asks for the current flags on the file descriptor fd
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK); // We set the new flags of the fd to be = old flags + the O_NONBLOCK flag using bitwise OR (|).
+    int check = fcntl(fd, F_SETFL, O_NONBLOCK); // We set the new flags of the fd to be = old flags + the O_NONBLOCK flag using bitwise OR (|).
+		if (check == -1);
+			return check;
+	check = fcntl(fd, F_SETFD, FD_CLOEXEC); // Magical flag that will make FD's close after forking or execv ( we shall see)
+		if (check == -1)
+			return check;
+	return 0;
 }
 /*
 	Here we loop through the events if epoll_wait() returned positive value, which means we have fd's that are ready to be handled. Number of events
@@ -65,13 +73,16 @@ void Server::handle_epoll_event(struct epoll_event *events)
 		{
 			int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
 			if (clientfd < 0){
-				//add error here
+				std::cerr << "Failed to establish connection1" << std::endl;
 				close(clientfd);
 			}
-			set_non_blocking(clientfd);
+			if (set_non_blocking(clientfd) < 0){
+				std::cerr << "Failed to establish connection1" << std::endl;
+				close(clientfd);
+			}
 			ev.data.fd = clientfd;
 			if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
-				//error
+				std::cerr << "Failed to establish connection1" << std::endl;
 				close(clientfd);
 			}
 			// Just here to print information;
@@ -86,7 +97,10 @@ void Server::handle_epoll_event(struct epoll_event *events)
 		{
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
-			//NEW SPOT FOR PARSING
+			if (bytes_read < 0){
+				std::cerr << "Failed to recv HTTP message" << std::endl; // send response??
+				continue ;
+			}
 			HttpRequest req1(fd);
 			std::cout << "Message from startServer: \n" << buffer << std::endl;
 			try 
@@ -111,8 +125,6 @@ void Server::handle_epoll_event(struct epoll_event *events)
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
                 close(fd);
 			}
-			else	
-				std::cout << "Message: " << buffer << std::endl;
 			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
@@ -179,20 +191,24 @@ void Server::handle_epoll_event(struct epoll_event *events)
               about edge-triggered and level-triggered notification.
 	( Not sure we need this EPOLLOT, but it stopped the epoll_wait to constantly calling handle_epoll_events)
 	*/
-void Server::start_epoll()
+int Server::start_epoll()
 {
 	struct epoll_event events[100]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
+	if (_epollfd == -1)
+		return -1;
 	struct epoll_event ev;
 	ev.events = EPOLLIN | EPOLLET; // not sure if I need this here.
 	ev.data.fd = _serverfd;
-	epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev);
+	if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev) < 0 )
+		return -1;
 	while(1)
 	{
 		_read_count = epoll_wait(_epollfd, events, 42, -1); // returns number of events that are ready to be handled
 		if (_read_count != 0)
 			handle_epoll_event(events);
 	}
+	return 0;
 }
 /* ....Initiliazing Socket. 
 		socket(int domain, int type, int protocol), creates an endpoint for communication and returns a file
@@ -236,18 +252,35 @@ void Server::start_epoll()
 void Server::startServer()
 {
 	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
-	set_non_blocking(_serverfd);
-
-	int rc = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
-
-	sockaddr_in serverAddress; // memset struct to 0 ??
+	if (_serverfd < 0){
+		throw std::runtime_error("Error! Failed to create socket"); 
+	}
+	// at this point I have serverfd open so it needs to be closed.
+	int check = set_non_blocking(_serverfd);
+	if (check < 0){
+		throw std::runtime_error("Error! Socket is kill");
+	}
+	check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
+	if (check < 0){
+		throw std::runtime_error("Error! Failed to create setsockopt");
+	}
+	struct sockaddr_in serverAddress; // memset struct to 0 ??
+	bzero(&serverAddress, sizeof(serverAddress));
+	//memset(&serverAddress, '0', sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
 	serverAddress.sin_port = htons(1234); // random working port in Hive
 	serverAddress.sin_addr.s_addr = INADDR_ANY; // All possible available ip addresses
-
-	bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-
-	listen(_serverfd, 5);
-	start_epoll();
+	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+	if (check == -1){
+		std::cout << errno << std::endl;
+		throw std::runtime_error("Error! Failed to bind server socket");
+	}
+	check = listen(_serverfd, 5);
+	if (check < 0){
+		throw std::runtime_error("Error! Failed to start listening server socket");
+	}
+	check = start_epoll();
+	if (check < 0)
+		 throw std::runtime_error("Error! epoll_ctl failed");
 	close(_serverfd);
 }
