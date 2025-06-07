@@ -27,9 +27,12 @@ std::string extractConfig(const std::string &line, const std::string &keyword)
 	return "";
 	//throw std::runtime_error("issues in config parsing");
 }
+
 LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, std::vector<LocationConfig> &locations)
 {
 	LocationConfig locBlock;
+	locBlock.dir_listing = false;
+	locBlock.redirect_code = -1;
 
 	size_t pos = line.find("location");
 	size_t brace = line.find('{', pos);//check for braces and position??
@@ -37,7 +40,6 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	locBlock.path = trim(path);
 	int braceCount = 1;
 	std::string inLine;
-	// std::vector<std::string>nested;
 	while (std::getline(file, inLine))
 	{
 		if (inLine.find('{') != std::string::npos)
@@ -67,6 +69,31 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 				start = end + 1;
 			}
 		}
+		value = extractConfig(inLine, "cgi_path_php");
+		if (!value.empty()) 
+			locBlock.cgi_path_php = value;
+		value = extractConfig(inLine, "cgi_path_python");
+		if (!value.empty()) 
+			locBlock.cgi_path_python = value;
+		value = extractConfig(inLine, "dir_listing");
+		if (!value.empty()) 
+			locBlock.dir_listing = (value == "on") ? true : false;
+		value = extractConfig(inLine, "return");
+		if (!value.empty())
+		{
+			size_t spPos = value.find(' ');
+			if (spPos != std::string::npos)
+			{
+				std::string redirCode = value.substr(0, spPos);
+				locBlock.redirect_code = std::stoi(redirCode);//to check
+				locBlock.redirect_target = trim(value.substr(spPos + 1));
+			}
+			else
+    		{
+        		locBlock.redirect_code = -1;
+        		locBlock.redirect_target.clear();
+    		}
+		}
 		if (braceCount == 0)
 			break;
 	}
@@ -79,7 +106,11 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	for (size_t i = 0; i < locBlock.methods.size(); ++i)
 		std::cout << " " << locBlock.methods[i];
 	std::cout << "\n";
-
+	std::cout << "  cgi path php: " << locBlock.cgi_path_php << "\n";
+	std::cout << "  cgi path python: " << locBlock.cgi_path_python << "\n";
+	std::cout << "  dir listing: " << locBlock.dir_listing << "\n";
+	std::cout << "  redir code: " << locBlock.redirect_code << "\n";
+	std::cout << "  redir target: " << locBlock.redirect_target << "\n";
 	return locBlock;
 }
 

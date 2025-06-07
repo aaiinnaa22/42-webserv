@@ -18,6 +18,11 @@ struct LocationConfig
 	std::string root;
 	std::string index;
 	std::vector<std::string> methods;
+	std::string cgi_path_php;
+	std::string cgi_path_python;
+	bool dir_listing;
+	int redirect_code;
+	std::string redirect_target;
 };
 
 struct ServerConfig
