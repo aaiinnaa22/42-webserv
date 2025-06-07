@@ -3,8 +3,11 @@
 //simple directives and block directives
 //TO DO: nested blocks, directive parsing, errors????
 
-//TO DO SATURDAY: cgi_path_php, cgi_path_python, dir_listing, and... return 307 /newDir/; (no idea what this is)
-//TO DO SATURDAY: comments are not stripped from the latter part of basic config
+//DONE: cgi_path_php, cgi_path_python, dir_listing, and... return 307 /newDir/; (no idea what this is)
+//TO DO SUNDAY: comments are not stripped from the latter part of basic config
+
+//TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
+// WE SHALL SEE
 
 std::string trim(const std::string &toTrim)
 {
@@ -42,10 +45,11 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
-		if (inLine.find('{') != std::string::npos)
-           	++braceCount;
-        if (inLine.find('}') != std::string::npos)
-        	--braceCount;
+		//check for comments, trimming...
+		braceCount += std::count(inLine.begin(), inLine.end(), '{');
+     	braceCount -= std::count(inLine.begin(), inLine.end(), '}');
+		if (braceCount == 0)
+			break;
 		if (inLine.empty())
 			continue;
 		std::string value = extractConfig(inLine, "root");
@@ -94,10 +98,9 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
         		locBlock.redirect_target.clear();
     		}
 		}
-		if (braceCount == 0)
+		if (braceCount == 1)
 			break;
 	}
-	locations.push_back(locBlock);
 	std::cout << "Parsed location block:\n";
 	std::cout << "  path: " << locBlock.path << "\n";
 	std::cout << "  root: " << locBlock.root << "\n";
@@ -122,16 +125,15 @@ int ConfigParse::parseServerBlock(std::ifstream &file)
 	ServerConfig s1;
 	while (std::getline(file, line))
 	{
-        	if (line.find('{') != std::string::npos)
-           		 ++braceCount;
-        	if (line.find('}') != std::string::npos)
-            		--braceCount;
-			if (line.find("location") != std::string::npos)
-			{
-				LocationConfig l1 = parseLocationBlock(file, line, s1.locations);
-				//s1.locations.push_back(l1);
-				continue;
-			}
+		//cleaning the comments, trimming...
+        braceCount += std::count(line.begin(), line.end(), '{');
+     	braceCount -= std::count(line.begin(), line.end(), '}');
+		if (line.find("location") != std::string::npos)
+		{
+			LocationConfig l1 = parseLocationBlock(file, line, s1.locations);
+			s1.locations.push_back(l1);
+			continue;
+		}
 			std::string value = extractConfig(line, "listen");
 			if (!value.empty())
 			{
@@ -181,6 +183,7 @@ int ConfigParse::parseServerBlock(std::ifstream &file)
             		break;
         	}
 	}
+	std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
 	return 0;
 }
 
