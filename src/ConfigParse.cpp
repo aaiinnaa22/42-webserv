@@ -9,6 +9,17 @@
 //TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
 // WE SHALL SEE
 
+std::string cleanLine(const std::string &orgLine)
+{
+	std::string line = orgLine;
+	std::size_t commentPos = line.find('#');
+	if (commentPos != std::string::npos)
+		line = line.substr(0, commentPos);
+	line.erase(0,line.find_first_not_of(" \t"));
+	line.erase(line.find_last_not_of(" \t") + 1);
+	return line;
+}
+
 std::string trim(const std::string &toTrim)
 {
 	size_t pre = toTrim.find_first_not_of(" \t\n\r");
@@ -45,13 +56,13 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
-		//check for comments, trimming...
+		inLine = cleanLine(inLine);
+		if (inLine.empty())
+			continue;
 		braceCount += std::count(inLine.begin(), inLine.end(), '{');
      	braceCount -= std::count(inLine.begin(), inLine.end(), '}');
 		if (braceCount == 0)
 			break;
-		if (inLine.empty())
-			continue;
 		std::string value = extractConfig(inLine, "root");
 		if (!value.empty()) 
 			locBlock.root = value;
@@ -79,6 +90,9 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		value = extractConfig(inLine, "cgi_path_python");
 		if (!value.empty()) 
 			locBlock.cgi_path_python = value;
+		value = extractConfig(inLine, "upload_dir");
+		if (!value.empty())
+			locBlock.upload_dir = value;
 		value = extractConfig(inLine, "dir_listing");
 		if (!value.empty()) 
 			locBlock.dir_listing = (value == "on") ? true : false;
@@ -101,31 +115,34 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		if (braceCount == 1)
 			break;
 	}
-	std::cout << "Parsed location block:\n";
-	std::cout << "  path: " << locBlock.path << "\n";
-	std::cout << "  root: " << locBlock.root << "\n";
-	std::cout << "  index: " << locBlock.index << "\n";
-	std::cout << "  methods:";
-	for (size_t i = 0; i < locBlock.methods.size(); ++i)
-		std::cout << " " << locBlock.methods[i];
-	std::cout << "\n";
-	std::cout << "  cgi path php: " << locBlock.cgi_path_php << "\n";
-	std::cout << "  cgi path python: " << locBlock.cgi_path_python << "\n";
-	std::cout << "  dir listing: " << locBlock.dir_listing << "\n";
-	std::cout << "  redir code: " << locBlock.redirect_code << "\n";
-	std::cout << "  redir target: " << locBlock.redirect_target << "\n";
+	// std::cout << "Parsed location block:\n";
+	// std::cout << "  path: " << locBlock.path << "\n";
+	// std::cout << "  root: " << locBlock.root << "\n";
+	// std::cout << "  index: " << locBlock.index << "\n";
+	// std::cout << "  methods:";
+	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
+	// 	std::cout << " " << locBlock.methods[i];
+	// std::cout << "\n";
+	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
+	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
+	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
+	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
+	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
+	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
 	return locBlock;
 }
 
-int ConfigParse::parseServerBlock(std::ifstream &file)
+ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 {
-	std::cout << "Parse server block call\n";
+	//std::cout << "Parse server block call\n";
 	std::string line;
 	int braceCount = 1;
 	ServerConfig s1;
 	while (std::getline(file, line))
 	{
-		//cleaning the comments, trimming...
+		line = cleanLine(line);
+		if (line.empty())
+			continue;
         braceCount += std::count(line.begin(), line.end(), '{');
      	braceCount -= std::count(line.begin(), line.end(), '}');
 		if (line.find("location") != std::string::npos)
@@ -134,62 +151,82 @@ int ConfigParse::parseServerBlock(std::ifstream &file)
 			s1.locations.push_back(l1);
 			continue;
 		}
-			std::string value = extractConfig(line, "listen");
-			if (!value.empty())
+		std::string value = extractConfig(line, "listen");
+		if (!value.empty())
+		{
+			s1.listen_port = stoi(value);//TODO: check
+			//std::cout << s1.listen_port << "-->listen port from struct\n";
+		}
+		value = extractConfig(line, "host");
+		if (!value.empty())
+		{
+			s1.host = value;
+			//std::cout << s1.host << "-->host from struct\n";
+		}
+		value = extractConfig(line, "server_name");
+		if (!value.empty())
+		{
+			size_t start = 0;
+			while (start < value.length())
 			{
-				s1.listen_port = stoi(value);//TODO: check
-				std::cout << s1.listen_port << "-->listen port from struct\n";
+				size_t end = value.find(' ', start);
+				if (end == std::string::npos)
+					end = value.length();
+				std::string oneName = value.substr(start, end - start);
+				if (!oneName.empty())
+					s1.server_names.push_back(oneName);
+				start = end + 1;
 			}
-			value = extractConfig(line, "host");
+		}
+		value = extractConfig(line, "max_client_body_size");
+		if (!value.empty())
+		{
+			s1.max_client_body_size = std::stoi(value);//TODO: check
+			//std::cout << s1.max_client_body_size << "-->body size from struct\n";
+		}
+		value = extractConfig(line, "max_client_header_size");
+		if (!value.empty())
+		{
+			s1.max_client_header_size = std::stoi(value);//TODO: check
+			//std::cout << s1.max_client_header_size << "-->header size from struct\n";
+		}
+		value = extractConfig(line, "root");
+		if (!value.empty())
+		{
+			s1.root = value;
+		}
+		value = extractConfig(line, "error_page");
+		{
 			if (!value.empty())
 			{
-				s1.host = value;
-				std::cout << s1.host << "-->host from struct\n";
-			}
-			value = extractConfig(line, "server_name");
-			if (!value.empty())
-			{
-				size_t start = 0;
-				while (start < value.length())
+				std::istringstream iss(value);
+				std::string codeString, path;
+				iss >> codeString >> path;
+				if (!codeString.empty() && !path.empty())
 				{
-					size_t end = value.find(' ', start);
-					if (end == std::string::npos)
-						end = value.length();
-					std::string oneName = value.substr(start, end - start);
-					if (!oneName.empty())
-						s1.server_names.push_back(oneName);
-					start = end + 1;
+					int code = std::stoi(codeString);//check
+					s1.error_pages[code] = path;
 				}
+				//else error message? throwing?
 			}
-			value = extractConfig(line, "max_client_body_size");
-			if (!value.empty())
-			{
-				s1.max_client_body_size = std::stoi(value);//TODO: check
-				std::cout << s1.max_client_body_size << "-->body size from struct\n";
-			}
-			value = extractConfig(line, "max_client_header_size");
-			if (!value.empty())
-			{
-				s1.max_client_header_size = std::stoi(value);//TODO: check
-				std::cout << s1.max_client_header_size << "-->header size from struct\n";
-			}
-			// for (int i = 0; i < s1.server_names.size(); i++)
-			// {
-			// 	std::cout << "from vector index " << i << " " << s1.server_names[i] << std::endl;
-			// }
-        	if (braceCount == 0)
-       		{
-            		std::cout << "End of server block\n";
-            		break;
-        	}
+		}
+       	if (braceCount == 0)
+      	{
+    		//std::cout << "End of server block\n";
+           	break;
+        }
 	}
-	std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
-	return 0;
+	//std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
+	// for (const auto &entry : s1.error_pages)
+	// {
+	// 	std::cout << entry.first << " => " << entry.second << " --> error page\n";
+	// }
+	return s1;
 }
 
 int ConfigParse::confParse(std::string &filename)
 {
-	std::cout << "messege from confParse" << std::endl;
+	//std::cout << "messege from confParse" << std::endl;
 	if (std::filesystem::path(filename).extension() != ".conf")
 	{
 		std::cerr << "Invalid file extension" << std::endl;
@@ -208,11 +245,7 @@ int ConfigParse::confParse(std::string &filename)
 	bool insideBlock = false;
 	while (std::getline(file, line))
 	{
-		std::size_t commentPos = line.find('#');
-		if (commentPos != std::string::npos)
-			line = line.substr(0, commentPos);
-		line.erase(0,line.find_first_not_of(" \t"));
-		line.erase(line.find_last_not_of(" \t") + 1);
+		line = cleanLine(line);
 		if (line.empty())
 			continue;
 		if (!insideBlock)
@@ -220,7 +253,10 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find("server") != std::string::npos) 
 			{
 				if (line.find('{') != std::string::npos)
-					parseServerBlock(file);
+				{
+					ServerConfig s = parseServerBlock(file);
+					servers.push_back(s);
+				}
 				else
 					insideBlock = true;
 				continue;
@@ -230,7 +266,8 @@ int ConfigParse::confParse(std::string &filename)
 		{
 			if (line.find('{') != std::string::npos)
 			{
-				parseServerBlock(file);
+				ServerConfig s = parseServerBlock(file);
+				servers.push_back(s);
 				insideBlock = false;
 			}
 			else
@@ -239,4 +276,8 @@ int ConfigParse::confParse(std::string &filename)
 	}
 	file.close();
 	return 0;
+}
+
+const std::vector<ServerConfig> &ConfigParse::getServers() const{
+	return servers;
 }
