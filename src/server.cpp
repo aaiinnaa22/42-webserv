@@ -1,5 +1,6 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
+#include "../inc/ConfigParse.hpp"
 #include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
 #include <stdlib.h>
 #include <cstring>
@@ -249,7 +250,24 @@ int Server::start_epoll()
        request arrives when the queue is full, the client may receive an
        error (I am not sure what would be correct size for the quee).
 	   */
-void Server::startServer()
+int32_t Server::get_networkaddress(std::string host)
+{
+int i = 0;
+std::string segment;
+std::stringstream host1(host);
+std::vector<int> seglist;
+while(std::getline(host1, segment, '.'))
+{	
+	i = std::stoi(segment);
+	seglist.push_back(i);
+	i = 0;
+}
+uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] << 8) | seglist[3];
+//std::cout << ip_host_order << std::endl;
+return ip_host_order;
+}
+
+void Server::startServer(int listen_port, std::string host)
 {
 	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_serverfd < 0){
@@ -265,12 +283,13 @@ void Server::startServer()
 		throw std::runtime_error("Error! Failed to create setsockopt");
 	}
 	struct sockaddr_in serverAddress; // memset struct to 0 ??
-	bzero(&serverAddress, sizeof(serverAddress));
-	//memset(&serverAddress, '0', sizeof(sockaddr_in));
+	memset(&serverAddress, 0, sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
-	serverAddress.sin_port = htons(1234); // random working port in Hive
-	serverAddress.sin_addr.s_addr = INADDR_ANY; // All possible available ip addresses
-	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+	serverAddress.sin_port = htons(listen_port); // random working port in Hive
+	uint32_t ip_address = get_networkaddress(host);
+	serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
+	std::cout << "Server ip: " << host << " Port: " << listen_port <<  std::endl;
+ 	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	if (check == -1){
 		std::cout << errno << std::endl;
 		throw std::runtime_error("Error! Failed to bind server socket");

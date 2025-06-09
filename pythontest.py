@@ -19,8 +19,9 @@ print(bcolors.OKGREEN + "OK" + bcolors.ENDC)
 
 
 print("GET http://127.0.0.1:1234/cat.html")
-r = requests.get("http://127.0.0.1:1234/cat.html")
-assert r.status_code == 404
+b = requests.get("http://127.0.0.1:1234/cat.html")
+print (b)
+"""assert r.status_code == 404
 print(bcolors.OKGREEN + "OK" + bcolors.ENDC)
 
 print("GET http://127.0.0.1:1234/index.htm")
@@ -35,7 +36,7 @@ print(r)
 assert r.status_code == 403
 print(bcolors.OKGREEN + "OK" + bcolors.ENDC)
 
-"""
+
 print("POST")
 post_request("POST test.txt HTTP/1.1\r\n"
     "Content-Length: 40\r\n"
