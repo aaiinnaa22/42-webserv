@@ -30,7 +30,8 @@ int main()
     "\r\n"
     "name=FirstName+LastName&email=bsmth%40example.com";
     send(clientSocket, message, strlen(message), 0);
-
+	
+    
     // closing socket
     close(clientSocket);
 

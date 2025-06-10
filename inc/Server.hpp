@@ -16,15 +16,16 @@ class Server {
         int _serverfd;
         int _epollfd;
         int _read_count;
-        int _clientfd; //unused?? 
+        int _clientfd; //unused???
     public:
         Server();
         ~Server();
 
-        void set_non_blocking(int fd);
+        int set_non_blocking(int fd);
         void handle_epoll_event(struct epoll_event *events);
-        void start_epoll();
-        void startServer();
+        int start_epoll();
+        void startServer(int listen_port, std::string host);
+        int32_t get_networkaddress(std::string host);
 };
 
 #endif
