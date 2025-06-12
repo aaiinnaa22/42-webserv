@@ -99,14 +99,12 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 
-	auto it = headers.find("Host"); //nginx requires Host as a header for get?
-	if (it == headers.end())
-		throw std::runtime_error("400 Bad Request");
-
-	path = currentLocation.root + path;
+	//auto it = headers.find("Host"); //nginx requires Host as a header for get?
+	//if (it == headers.end())
+	//	throw std::runtime_error("400 Bad Request");
 
 	if (path.back() == '/')
-		path += currentLocation.index;
+		path = currentLocation.root + path;
 
 	//directory listing??!
 
@@ -131,13 +129,14 @@ void HttpRequest::methodPost(void)
 	int fd;
 	unsigned long contentLength;
 
-	if (path[0] != '/') //nginx needs /??
-	 throw std::runtime_error("400 Bad Request"); 
-	auto it = headers.find("Content-Length");
+	//if (path[0] != '/') //nginx needs /??
+	// throw std::runtime_error("400 Bad Request"); 
+	/*auto it = headers.find("Content-Length");
 	if (it != headers.end())
 		contentLength = std::stoul(it->second);
 	else 
-		throw std::runtime_error("411 Length Required");
+		throw std::runtime_error("411 Length Required");*/
+	std::cout << path.c_str() << std::endl;
 	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
@@ -193,13 +192,9 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 void HttpRequest::doRequest(ServerConfig config)
 {
-	//security issue check
-	/*if (path.empty() || 
-	path.find("/..") != std::string::npos || 
-	path.find("../") != std::string::npos ||
-	path == "..")
-		throw std::runtime_error("400 Bad Request");*/
 	findCurrentLocation(config);
+	path = currentLocation.root + path;
+
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 		currentLocation.methods.end())
