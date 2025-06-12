@@ -27,6 +27,7 @@ class HttpRequest
 		void sendResponse(std::string status);
 		void setContentType(std::string path);
 		void findCurrentLocation(ServerConfig config);
+		void ResponseBodyIsDirectoryListing(void);
 
 	public:
 		void	parse(const std::string& request);

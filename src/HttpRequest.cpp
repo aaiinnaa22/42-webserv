@@ -92,6 +92,11 @@ void HttpRequest::setContentType(std::string path)
 		throw std::runtime_error("415 Unsupported Media Type"); //?
 }
 
+void HttpRequest::ResponseBodyIsDirectoryListing(void)
+{
+
+}
+
 //! poll for read and open
 void HttpRequest::methodGet(void)
 {
@@ -104,9 +109,17 @@ void HttpRequest::methodGet(void)
 	//	throw std::runtime_error("400 Bad Request");
 
 	if (path.back() == '/')
-		path = currentLocation.root + path;
-
-	//directory listing??!
+	{
+		if (!currentLocation.index.empty())
+			path = path + currentLocation.index;
+		else if (currentLocation.dir_listing)
+		{
+			ResponseBodyIsDirectoryListing();//send back directory listing
+			responseContentType = "text/html";
+			sendResponse("200 OK");
+		}
+		//else?? 404 not found??
+	}
 
 	//cgi script??
 
