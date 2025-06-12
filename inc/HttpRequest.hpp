@@ -19,18 +19,20 @@ class HttpRequest
 		std::string responseBody;
 		std::string responseContentType;
 		int clientfd;
+		LocationConfig currentLocation;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
 		void doCgi();
 		void sendResponse(std::string status);
 		void setContentType(std::string path);
+		void findCurrentLocation(ServerConfig config);
 
 	public:
 		void	parse(const std::string& request);
 		std::string	getMethod();
 		std::string	getPath();
 		std::string	getHttpVersion();
-		void	doRequest(void);
+		void	doRequest(ServerConfig config);
 		HttpRequest(int fd);
 };

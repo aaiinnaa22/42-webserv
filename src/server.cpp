@@ -59,7 +59,7 @@ int Server::set_non_blocking(int fd)
        to read(2). The recv() call is normally used only on a connected socket
 
 */
-void Server::handle_epoll_event(struct epoll_event *events)
+void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 {
 	int fd;
 	struct epoll_event ev;
@@ -108,7 +108,7 @@ void Server::handle_epoll_event(struct epoll_event *events)
 			{
 				req1.parse(buffer);
 				//Aina
-				req1.doRequest();
+				req1.doRequest(config);
 			}
 			catch(std::exception& e)
 			{
@@ -192,7 +192,7 @@ void Server::handle_epoll_event(struct epoll_event *events)
               about edge-triggered and level-triggered notification.
 	( Not sure we need this EPOLLOT, but it stopped the epoll_wait to constantly calling handle_epoll_events)
 	*/
-int Server::start_epoll()
+int Server::start_epoll(ServerConfig config)
 {
 	struct epoll_event events[100]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
@@ -207,7 +207,7 @@ int Server::start_epoll()
 	{
 		_read_count = epoll_wait(_epollfd, events, 42, -1); // returns number of events that are ready to be handled
 		if (_read_count != 0)
-			handle_epoll_event(events);
+			handle_epoll_event(events, config);
 	}
 	return 0;
 }
@@ -267,7 +267,7 @@ uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] <
 return ip_host_order;
 }
 
-void Server::startServer(int listen_port, std::string host)
+void Server::startServer(ServerConfig config)//(int listen_port, std::string host)
 {
 	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_serverfd < 0){
@@ -285,10 +285,10 @@ void Server::startServer(int listen_port, std::string host)
 	struct sockaddr_in serverAddress; // memset struct to 0 ??
 	memset(&serverAddress, 0, sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
-	serverAddress.sin_port = htons(listen_port); // random working port in Hive
-	uint32_t ip_address = get_networkaddress(host);
+	serverAddress.sin_port = htons(config.listen_port); // random working port in Hive
+	uint32_t ip_address = get_networkaddress(config.host);
 	serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
-	std::cout << "Server ip: " << host << " Port: " << listen_port <<  std::endl;
+	std::cout << "Server ip: " << config.host << " Port: " << config.listen_port <<  std::endl;
  	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	if (check == -1){
 		std::cout << errno << std::endl;
@@ -298,7 +298,7 @@ void Server::startServer(int listen_port, std::string host)
 	if (check < 0){
 		throw std::runtime_error("Error! Failed to start listening server socket");
 	}
-	check = start_epoll();
+	check = start_epoll(config);
 	if (check < 0)
 		 throw std::runtime_error("Error! epoll_ctl failed");
 	close(_serverfd);

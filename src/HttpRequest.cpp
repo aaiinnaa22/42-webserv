@@ -102,11 +102,19 @@ void HttpRequest::methodGet(void)
 	auto it = headers.find("Host"); //nginx requires Host as a header for get?
 	if (it == headers.end())
 		throw std::runtime_error("400 Bad Request");
-	path = "." + path;
+
+	path = currentLocation.root + path;
+
+	if (path.back() == '/')
+		path += currentLocation.index;
+
+	//directory listing??!
+
+	//cgi script??
+
 	fd = open(path.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 		throw std::runtime_error("404 Not found");
-	std::cout << "file " << path << " opened" << std::endl;
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, charsRead);
 	close(fd);
@@ -160,29 +168,52 @@ void HttpRequest::methodDelete(void)
 void HttpRequest::doCgi(void)
 {}
 
-void HttpRequest::doRequest(void)
+void HttpRequest::findCurrentLocation(ServerConfig config)
+{
+	int longest_match_len = 0;
+	int match_len = 0;
+	bool match_found = false;
+
+	for (auto location : config.locations)
+	{
+		if (path.find(location.path) == 0) //path starts with location path
+		{
+			match_len = location.path.length();
+			if (match_len > longest_match_len)
+			{
+				currentLocation = location;
+				longest_match_len = match_len;
+				match_found = true;
+			}
+		}
+	}
+	if (!match_found)
+		throw std::runtime_error("404 Not found");
+}
+
+void HttpRequest::doRequest(ServerConfig config)
 {
 	//security issue check
-	if (path.empty() || 
+	/*if (path.empty() || 
 	path.find("/..") != std::string::npos || 
 	path.find("../") != std::string::npos ||
 	path == "..")
-		throw std::runtime_error("400 Bad Request");
-	if (path == "/")
-		path = "/index.html";
-	if (method == "GET")
-	{
-		//if (path.ends_with(".py"))
-		//	;//CGI
-		//else
-			methodGet();
-	}
-	else if (method == "POST")
+		throw std::runtime_error("400 Bad Request");*/
+	findCurrentLocation(config);
+	if (method == "GET" && 
+		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
+		currentLocation.methods.end())
+		methodGet();
+	else if (method == "POST" &&
+		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "POST") != 
+		currentLocation.methods.end())
 		methodPost();
-	else if (method == "DELETE")
+	else if (method == "DELETE" &&
+		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "DELETE") != 
+		currentLocation.methods.end())
 		methodDelete();
 	else 
-	 throw std::runtime_error("405 Method not allowed");
+		throw std::runtime_error("405 Method not allowed");
 }
 
 //Aina end

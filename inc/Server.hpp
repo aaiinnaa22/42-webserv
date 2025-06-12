@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include "ConfigParse.hpp" //ServerConfig
 
 class Server {
     private:
@@ -22,9 +23,9 @@ class Server {
         ~Server();
 
         int set_non_blocking(int fd);
-        void handle_epoll_event(struct epoll_event *events);
-        int start_epoll();
-        void startServer(int listen_port, std::string host);
+        void handle_epoll_event(struct epoll_event *events, ServerConfig config);
+        int start_epoll(ServerConfig config);
+        void startServer(ServerConfig config);
         int32_t get_networkaddress(std::string host);
 };
 
