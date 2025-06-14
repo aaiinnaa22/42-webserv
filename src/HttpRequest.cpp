@@ -114,7 +114,7 @@ void HttpRequest::methodGet(void)
 			path = path + currentLocation.index;
 		else if (currentLocation.dir_listing)
 		{
-			ResponseBodyIsDirectoryListing();//send back directory listing
+			ResponseBodyIsDirectoryListing();//send back directory listing, implement
 			responseContentType = "text/html";
 			sendResponse("200 OK");
 		}
@@ -149,7 +149,7 @@ void HttpRequest::methodPost(void)
 		contentLength = std::stoul(it->second);
 	else 
 		throw std::runtime_error("411 Length Required");*/
-	std::cout << path.c_str() << std::endl;
+	//std::cout << path.c_str() << std::endl;
 	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
