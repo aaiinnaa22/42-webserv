@@ -198,6 +198,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 				match_found = true;
 			}
 		}
+		//in case of exact match, return that?
 	}
 	if (!match_found)
 		throw std::runtime_error("404 Not found");
