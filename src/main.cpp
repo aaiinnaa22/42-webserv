@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 		confFile = argv[1];
 	else
 	{	
-		confFile = "basic.conf";
+		confFile = "conf/basic.conf";
 		std::cout << "No config file provided. Using default: basic.conf" << std::endl;
 	}
 	try {
