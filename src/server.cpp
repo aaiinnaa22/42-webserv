@@ -86,6 +86,8 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 				std::cerr << "Failed to establish connection1" << std::endl;
 				close(clientfd);
 			}
+			//connections[clientfd] = ClientConnection();
+			connections.try_emplace(clientfd, clientfd);
 			// Just here to print information;
 			uint16_t src_port = ntohs(addr.sin_port);
 			in_addr_t saddr = addr.sin_addr.s_addr;
@@ -102,23 +104,28 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 				std::cerr << "Failed to recv HTTP message" << std::endl; // send response??
 				continue ;
 			}
-			HttpRequest req1(fd);
+			
 			std::cout << "Message from startServer: \n" << buffer << std::endl;
-			try 
+			auto it = connections.find(fd);
+			if (it == connections.end())
+    			std::cerr << "No parser for fd " << fd << "\n";
+			else
 			{
-				req1.parse(buffer);
-				//Aina
-				req1.doRequest(config);
-			}
-			catch(std::exception& e)
-			{
-				//temporary
-				std::string response;
-				response = "HTTP/1.1\r\n\r\n<h1>ERROR ";
-				response += e.what();
-				response += "</h1>";
-				send(fd, response.c_str(), response.size(), 0);
-
+    			auto &conn = it->second;
+				try 
+				{
+					if (conn.parseData(buffer, bytes_read, config))
+						connections.erase(fd);
+				}
+				catch(std::exception& e)
+				{
+					//temporary
+					std::string response;
+					response = "HTTP/1.1\r\n\r\n<h1>ERROR ";
+					response += e.what();
+					response += "</h1>";
+					send(fd, response.c_str(), response.size(), 0);
+				}
 			}
 			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {

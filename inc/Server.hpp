@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <map>
 #include "ConfigParse.hpp" //ServerConfig
+#include "ClientConnection.hpp"
 
 class Server {
     private:
@@ -18,6 +20,7 @@ class Server {
         int _epollfd;
         int _read_count;
         int _clientfd; //unused???
+        std::map<int, ClientConnection> connections;
     public:
         Server();
         ~Server();

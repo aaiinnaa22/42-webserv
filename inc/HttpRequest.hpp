@@ -4,6 +4,7 @@
 #include <map>
 #include <fcntl.h>     // open
 #include <filesystem> //for remove in DELETE method, allowed?
+#include "ConfigParse.hpp"
 
 class HttpRequest
 {
@@ -30,10 +31,20 @@ class HttpRequest
 		void ResponseBodyIsDirectoryListing(void);
 
 	public:
-		void	parse(const std::string& request);
+		void		parse(const std::string& request);
 		std::string	getMethod();
 		std::string	getPath();
 		std::string	getHttpVersion();
-		void	doRequest(ServerConfig config);
+		const std::map<std::string, std::string>& getHeaders() const;
+		void 		setMethod(const std::string& m);
+    	void 		setPath(const std::string& p);
+    	void 		setHttpVersion(const std::string& v);
+    	void 		addHeader(const std::string& key, const std::string& value);
+    	void 		setBody(const std::string& b);
+		std::string	getHeader(const std::string& key) const;
+		void		doRequest(ServerConfig config);
+		
 		HttpRequest(int fd);
+		
+		void dump() const;
 };
