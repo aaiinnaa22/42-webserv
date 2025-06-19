@@ -132,6 +132,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
                 std::cout << "Connection closed by client: " << fd << std::endl;
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
                 close(fd);
+				//connections.erase(fd);???
 			}
 			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
 		}
@@ -140,6 +141,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 			std::cout << "Connection closed: " << fd << std::endl;
 			epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
 			close(fd);
+			//connections.erase(fd); ???
 			continue ;
 		}
 	}

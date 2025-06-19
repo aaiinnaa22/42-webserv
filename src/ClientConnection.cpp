@@ -25,6 +25,8 @@ bool is_valid_http_version_syntax(const std::string &version)
     return true;
 }
 
+
+//TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
 bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
 {
 	buffer.append(data, len);
@@ -38,22 +40,22 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 				return false;
 
 			std::string request_line = buffer.substr(0, line_end);
-			buffer.erase(0, line_end + 2);
+			buffer.erase(0, line_end);
 
 			std::istringstream stream(request_line);
 			std::string method, path, version;
 			if (!(stream >> method >> path))
-				throw std::runtime_error("a400 Bad Request");
+				throw std::runtime_error("400 Bad Request");
 			if (!(stream >> version))
     			version = "HTTP/1.1";
 			if (method.empty() || path.empty())
-				throw std::runtime_error("b400 Bad Request");
+				throw std::runtime_error("400 Bad Request");
 			if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
-				throw std::runtime_error("c400 Bad Request");
+				throw std::runtime_error("400 Bad Request");
 			if (method != "GET" && method != "POST" && method != "DELETE")
 				throw std::runtime_error("405 Method Not Allowed");
 			else if (!is_valid_http_version_syntax(version))
-        		throw std::runtime_error("d400 Bad Request");
+        		throw std::runtime_error("400 Bad Request");
 			if (version != "HTTP/1.1")
 				throw std::runtime_error("505 HTTP Version Not Supported");
 			request.setMethod(method);
@@ -63,11 +65,11 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		}
 		else if (state == HEADERS)
 		{
-			if (buffer.substr(0, 2) == "\r\n")
-				throw std::runtime_error("e400 Bad Request");
     		size_t headers_end = buffer.find("\r\n\r\n");
 			if (headers_end == std::string::npos)
                 return false;
+			if (headers_end == 0)
+    			throw std::runtime_error("400 Bad Request: no headers");
 			std::string headers_str = buffer.substr(0, headers_end);
 			buffer.erase(0, headers_end + 4);
 			std::istringstream stream(headers_str);
@@ -80,7 +82,7 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 					continue; 
 				size_t colon = line.find(':');
 				if (colon == std::string::npos)
-					throw std::runtime_error("f400 Bad Request");
+					throw std::runtime_error("400 Bad Request");
 
 				std::string key = line.substr(0, colon);
 				std::string value = line.substr(colon + 1);
@@ -90,13 +92,13 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 			}
 			std::string checkHost = request.getHeader("Host");
 			if (checkHost.empty())
-				throw std::runtime_error("g400 Bad Request");
+				throw std::runtime_error("400 Bad Request");
 			std::string contentLengthVal = request.getHeader("Content-Length");
 			if (!contentLengthVal.empty())
 			{
 				expected_body_len = std::stoi(contentLengthVal);//stoi check!
 				if (expected_body_len < 0)
-					throw std::runtime_error("h400 Bad Request");
+					throw std::runtime_error("400 Bad Request");
 				state = BODY;
 			}
 			else
