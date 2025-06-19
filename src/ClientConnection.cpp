@@ -1,53 +1,86 @@
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ConfigParse.hpp"
 
+bool is_valid_http_version_syntax(const std::string &version)
+{
+	if (version.size() < 8 | version.size() > 10)
+		return false;
+	if (version.substr(0,5) != "HTTP/")
+		return false;
+	std::string numbers = version.substr(5);
+	size_t dot_pos = numbers.find('.');
+	if (dot_pos == std::string::npos)
+		return false;
+
+    std::string main = numbers.substr(0, dot_pos);
+    std::string minor = numbers.substr(dot_pos + 1);
+
+    if (main.empty() || minor.empty())
+		return false;
+
+    if (!std::all_of(main.begin(), main.end(), ::isdigit))
+		return false;
+    if (!std::all_of(minor.begin(), minor.end(), ::isdigit))
+		return false;
+    return true;
+}
+
 bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
 {
 	buffer.append(data, len);
 
 	while (true)
 	{
-		if (state == REQUEST_LINE || state == HEADERS)
+		if (state == REQUEST_LINE)
 		{
-			size_t header_end = buffer.find("\r\n\r\n");
-			if (header_end == std::string::npos)
+			size_t line_end = buffer.find("\r\n");
+			if (line_end == std::string::npos)
 				return false;
 
-			std::string headers_part = buffer.substr(0, header_end);
-			buffer.erase(0, header_end + 4);
+			std::string request_line = buffer.substr(0, line_end);
+			buffer.erase(0, line_end + 2);
 
-			std::istringstream stream(headers_part);
+			std::istringstream stream(request_line);
+			std::string method, path, version;
+			if (!(stream >> method >> path))
+				throw std::runtime_error("a400 Bad Request");
+			if (!(stream >> version))
+    			version = "HTTP/1.1";
+			if (method.empty() || path.empty())
+				throw std::runtime_error("b400 Bad Request");
+			if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
+				throw std::runtime_error("c400 Bad Request");
+			if (method != "GET" && method != "POST" && method != "DELETE")
+				throw std::runtime_error("405 Method Not Allowed");
+			else if (!is_valid_http_version_syntax(version))
+        		throw std::runtime_error("d400 Bad Request");
+			if (version != "HTTP/1.1")
+				throw std::runtime_error("505 HTTP Version Not Supported");
+			request.setMethod(method);
+			request.setPath(path);
+			request.setHttpVersion(version);
+			state = HEADERS;
+		}
+		else if (state == HEADERS)
+		{
+			if (buffer.substr(0, 2) == "\r\n")
+				throw std::runtime_error("e400 Bad Request");
+    		size_t headers_end = buffer.find("\r\n\r\n");
+			if (headers_end == std::string::npos)
+                return false;
+			std::string headers_str = buffer.substr(0, headers_end);
+			buffer.erase(0, headers_end + 4);
+			std::istringstream stream(headers_str);
 			std::string line;
-	
-			if (state == REQUEST_LINE)
-			{
-				if (!std::getline(stream, line) || line.empty())
-					throw std::runtime_error("400 Bad Request");
-				
-				if (line.back() == '\r') line.pop_back();
-				std::istringstream lineStr(line);
-				std::string method, path, version;
-				lineStr >> method >> path >> version;
-				if (method.empty() || path.empty() || version.empty())
-					throw std::runtime_error("400 Bad Request");
-				request.setMethod(method);
-				request.setPath(path);
-				request.setHttpVersion(version);
-				if (method != "GET" && method != "POST" && method != "DELETE")
-					throw std::runtime_error("405 Method Not Allowed");// to be replaced with send response? //return true?
-				if (version != "HTTP/1.1")
-					throw std::runtime_error("505 HTTP Version Not Supported");
-				state = HEADERS;
-			}
 			while (std::getline(stream, line))
 			{
-				if (line.back() == '\r') line.pop_back();
+				if (line.back() == '\r')
+					line.pop_back();
 				if (line.empty())
 					continue; 
-
 				size_t colon = line.find(':');
 				if (colon == std::string::npos)
-					throw std::runtime_error("400 Bad Request");
+					throw std::runtime_error("f400 Bad Request");
 
 				std::string key = line.substr(0, colon);
 				std::string value = line.substr(colon + 1);
@@ -55,13 +88,15 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 
 				request.addHeader(key, value);
 			}
-
+			std::string checkHost = request.getHeader("Host");
+			if (checkHost.empty())
+				throw std::runtime_error("g400 Bad Request");
 			std::string contentLengthVal = request.getHeader("Content-Length");
 			if (!contentLengthVal.empty())
 			{
-				expected_body_len = std::stoi(contentLengthVal);
+				expected_body_len = std::stoi(contentLengthVal);//stoi check!
 				if (expected_body_len < 0)
-					throw std::runtime_error("400 Bad Request");
+					throw std::runtime_error("h400 Bad Request");
 				state = BODY;
 			}
 			else
