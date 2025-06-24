@@ -95,6 +95,7 @@ void HttpRequest::setContentType(std::string path)
 
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
+	//fix what happens when the dir listing links are clicked
 	std::string html_content;
 	DIR* dir;
 
@@ -114,6 +115,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	struct dirent* entry;
 	while ((entry = readdir(dir)) != nullptr)
 	{
+		//std::cout << "PATH FOR ENTRY:" << std::string(entry->d_name) << std::endl;
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //skip entries . and ..
 			continue ;
 		//what about .hiddenfiles?
@@ -144,7 +146,7 @@ void HttpRequest::methodGet(void)
 		//	path = path + currentLocation.index;
 		/*else*/ if (currentLocation.dir_listing)
 		{
-			ResponseBodyIsDirectoryListing();//send back directory listing, implement
+			ResponseBodyIsDirectoryListing();
 			responseContentType = "text/html";
 			sendResponse("200 OK");
 			return ;
@@ -230,6 +232,7 @@ void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
 	dump();
+	//std::cout << "path in do request without root: " << path << std::endl;
 	findCurrentLocation(config);
 	path = currentLocation.root + path;
 	std::cout << "path from do request: " << path << std::endl;
