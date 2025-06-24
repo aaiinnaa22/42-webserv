@@ -1,60 +1,60 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
 
-void	HttpRequest::parse(const std::string &request)
-{
- 	std::istringstream stream(request);
-	std::string line;
-	//Method, path, version
-	std::getline(stream, line);
-    size_t methodEnd = line.find(' ');
-    size_t pathEnd = line.find(' ', methodEnd + 1);
-    method = line.substr(0, methodEnd);
-	//check if method is GET POST OR DELETE, 405 if it's not
-    path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
-    httpVersion = line.substr(pathEnd + 1);
-	//the prints are just checks - comment out if necessary
-	//std::cout << "\nFrom parsing:\n";
-	//std::cout << "method: " << method << std::endl;
-	//std::cout << "path: " << path << std::endl;
-	//std::cout << "http ver: " << httpVersion << std::endl;
-	//throw 505 if version is not 1.1????
-	//headers
-	//std::map<std::string, std::string> headers;
-	while(getline(stream, line))
-	{
-		if (line == "\r" || line.empty())
-   	    	break;
-		size_t colon = line.find(':');
-		if (colon != std::string::npos)
-		{
-			std::string key = line.substr(0, colon);
-			std::string value = line.substr(colon + 2);
-			value.erase(value.find_last_not_of("\r\n") + 1);
-			headers[key] = value;
-		}
-	}
-	//another print for checking
-	//for (const auto& header : headers)
-	//{
-	//	std::cout << header.first << ": " << header.second << "\n";
-	//}
-	if (headers.count("Content-Length"))
-	{
-		int length = std::stoi(headers["Content-Length"]);
-		body.resize(length);
-		stream.read(&body[0], length);
-		if (stream.gcount() < length)
-		{
-            throw std::runtime_error("400 Bad Request: Body incomplete");
-        }// incomplete read check
-	}
-	//another print for checking
-	//if (!body.empty())
-	//{
-    //    std::cout << "Body: " << body << "\n";
-    //}
-}
+// void	HttpRequest::parse(const std::string &request)
+// {
+//  	std::istringstream stream(request);
+// 	std::string line;
+// 	//Method, path, version
+// 	std::getline(stream, line);
+//     size_t methodEnd = line.find(' ');
+//     size_t pathEnd = line.find(' ', methodEnd + 1);
+//     method = line.substr(0, methodEnd);
+// 	//check if method is GET POST OR DELETE, 405 if it's not
+//     path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
+//     httpVersion = line.substr(pathEnd + 1);
+// 	//the prints are just checks - comment out if necessary
+// 	//std::cout << "\nFrom parsing:\n";
+// 	//std::cout << "method: " << method << std::endl;
+// 	//std::cout << "path: " << path << std::endl;
+// 	//std::cout << "http ver: " << httpVersion << std::endl;
+// 	//throw 505 if version is not 1.1????
+// 	//headers
+// 	//std::map<std::string, std::string> headers;
+// 	while(getline(stream, line))
+// 	{
+// 		if (line == "\r" || line.empty())
+//    	    	break;
+// 		size_t colon = line.find(':');
+// 		if (colon != std::string::npos)
+// 		{
+// 			std::string key = line.substr(0, colon);
+// 			std::string value = line.substr(colon + 2);
+// 			value.erase(value.find_last_not_of("\r\n") + 1);
+// 			headers[key] = value;
+// 		}
+// 	}
+// 	//another print for checking
+// 	//for (const auto& header : headers)
+// 	//{
+// 	//	std::cout << header.first << ": " << header.second << "\n";
+// 	//}
+// 	if (headers.count("Content-Length"))
+// 	{
+// 		int length = std::stoi(headers["Content-Length"]);
+// 		body.resize(length);
+// 		stream.read(&body[0], length);
+// 		if (stream.gcount() < length)
+// 		{
+//             throw std::runtime_error("400 Bad Request: Body incomplete");
+//         }// incomplete read check
+// 	}
+// 	//another print for checking
+// 	//if (!body.empty())
+// 	//{
+//     //    std::cout << "Body: " << body << "\n";
+//     //}
+// }
 
 //Aina
 
@@ -206,8 +206,10 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 void HttpRequest::doRequest(ServerConfig config)
 {
+	dump();
 	findCurrentLocation(config);
 	path = currentLocation.root + path;
+	std::cout << "path from do request: " << path << std::endl;
 
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
@@ -226,6 +228,54 @@ void HttpRequest::doRequest(ServerConfig config)
 }
 
 //Aina end
+
+const std::map<std::string, std::string>& HttpRequest::getHeaders() const 
+{ 
+	return headers; 
+}
+
+void HttpRequest::setMethod(const std::string& m) 
+{
+	method = m;
+}
+
+void HttpRequest::setPath(const std::string& p)
+{ 
+	path = p;
+}
+
+void HttpRequest::setHttpVersion(const std::string& v)
+{
+	httpVersion = v; 
+}
+
+void HttpRequest::addHeader(const std::string& key, const std::string& value)
+{
+	headers[key] = value;
+}
+
+void HttpRequest::setBody(const std::string& b)
+{
+	body = b;
+}
+
+std::string HttpRequest::getHeader(const std::string& key) const
+{ 
+    std::map<std::string, std::string>::const_iterator it = headers.find(key);
+    return (it != headers.end()) ? it->second : "";
+}
+
+void HttpRequest::dump() const {
+    std::cout << "Method: " << method << "\n";
+    std::cout << "Path: " << path << "\n";
+    std::cout << "Version: " << httpVersion << "\n";
+    std::cout << "Headers:\n";
+    for (const auto& [key, value] : headers) {
+        std::cout << "  " << key << ": " << value << "\n";
+    }
+    std::cout << "Body:\n" << body << "\n";
+}
+
 
 //ERRORS:
 //CLIENT ERROR RESPONSES
