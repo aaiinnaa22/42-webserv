@@ -92,9 +92,43 @@ void HttpRequest::setContentType(std::string path)
 		throw std::runtime_error("415 Unsupported Media Type"); //?
 }
 
+
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
+	std::string html_content;
+	DIR* dir;
 
+	dir = opendir(path.c_str());
+	if (dir == nullptr)
+		throw std::runtime_error("500 Internal Server Error"); //?
+	
+	html_content = 
+	"<html>\n"
+	"<head><title>Directory Listing</title></head>\n"
+	"<body>\n"
+	"<h1>Directory Listing</h1>\n"
+	"<ul>\n";
+
+	responseBody = html_content;
+	
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != nullptr)
+	{
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //skip entries . and ..
+			continue ;
+		//what about .hiddenfiles?
+		std::string strEntry(entry->d_name);
+		html_content = "<li><a href=\"" + strEntry + "\">" + strEntry + "</a></li>\n"; 
+		responseBody += html_content;
+	}
+
+	html_content = 
+	"</ul>\n"
+	"</body>\n"
+	"</html>\n";
+	
+	responseBody += html_content;
+	closedir(dir);
 }
 
 //! poll for read and open
@@ -106,13 +140,14 @@ void HttpRequest::methodGet(void)
 
 	if (path.back() == '/')
 	{
-		if (!currentLocation.index.empty())
-			path = path + currentLocation.index;
-		else if (currentLocation.dir_listing)
+		//if (!currentLocation.index.empty())
+		//	path = path + currentLocation.index;
+		/*else*/ if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();//send back directory listing, implement
 			responseContentType = "text/html";
 			sendResponse("200 OK");
+			return ;
 		}
 		//else?? 404 not found??
 	}
@@ -193,6 +228,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 void HttpRequest::doRequest(ServerConfig config)
 {
+	//make sure all response stuff, like response body, is cleared out/empty for every request
 	dump();
 	findCurrentLocation(config);
 	path = currentLocation.root + path;

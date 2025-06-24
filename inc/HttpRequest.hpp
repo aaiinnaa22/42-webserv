@@ -5,6 +5,8 @@
 #include <fcntl.h>     // open
 #include <filesystem> //for remove in DELETE method, allowed?
 #include "ConfigParse.hpp"
+#include <dirent.h> //opendir, closedir....
+#include <cstring> //strcmp
 
 class HttpRequest
 {
