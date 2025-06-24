@@ -232,7 +232,11 @@ void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
 	dump();
-	//std::cout << "path in do request without root: " << path << std::endl;
+	std::cout << "path in do request without root: " << path << std::endl;
+	//what!? when trying dir listing several times
+	//path in do request without root: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
+	//path from do request: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
+
 	findCurrentLocation(config);
 	path = currentLocation.root + path;
 	std::cout << "path from do request: " << path << std::endl;
