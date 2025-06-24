@@ -104,10 +104,6 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 
-	//auto it = headers.find("Host"); //nginx requires Host as a header for get?
-	//if (it == headers.end())
-	//	throw std::runtime_error("400 Bad Request");
-
 	if (path.back() == '/')
 	{
 		if (!currentLocation.index.empty())
@@ -140,20 +136,11 @@ void HttpRequest::methodPost(void)
 {
 	ssize_t charsWritten;
 	int fd;
-	unsigned long contentLength;
 
-	//if (path[0] != '/') //nginx needs /??
-	// throw std::runtime_error("400 Bad Request"); 
-	/*auto it = headers.find("Content-Length");
-	if (it != headers.end())
-		contentLength = std::stoul(it->second);
-	else 
-		throw std::runtime_error("411 Length Required");*/
-	//std::cout << path.c_str() << std::endl;
-	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
-	charsWritten = write(fd, body.c_str(), contentLength);
+	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
