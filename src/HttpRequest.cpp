@@ -92,9 +92,45 @@ void HttpRequest::setContentType(std::string path)
 		throw std::runtime_error("415 Unsupported Media Type"); //?
 }
 
+
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
+	//fix what happens when the dir listing links are clicked
+	std::string html_content;
+	DIR* dir;
 
+	dir = opendir(path.c_str());
+	if (dir == nullptr)
+		throw std::runtime_error("500 Internal Server Error"); //?
+	
+	html_content = 
+	"<html>\n"
+	"<head><title>Directory Listing</title></head>\n"
+	"<body>\n"
+	"<h1>Directory Listing</h1>\n"
+	"<ul>\n";
+
+	responseBody = html_content;
+	
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != nullptr)
+	{
+		//std::cout << "PATH FOR ENTRY:" << std::string(entry->d_name) << std::endl;
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //skip entries . and ..
+			continue ;
+		//what about .hiddenfiles?
+		std::string strEntry(entry->d_name);
+		html_content = "<li><a href=\"" + strEntry + "\">" + strEntry + "</a></li>\n"; 
+		responseBody += html_content;
+	}
+
+	html_content = 
+	"</ul>\n"
+	"</body>\n"
+	"</html>\n";
+	
+	responseBody += html_content;
+	closedir(dir);
 }
 
 //! poll for read and open
@@ -104,19 +140,16 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 
-	//auto it = headers.find("Host"); //nginx requires Host as a header for get?
-	//if (it == headers.end())
-	//	throw std::runtime_error("400 Bad Request");
-
 	if (path.back() == '/')
 	{
-		if (!currentLocation.index.empty())
-			path = path + currentLocation.index;
-		else if (currentLocation.dir_listing)
+		//if (!currentLocation.index.empty())
+		//	path = path + currentLocation.index;
+		/*else*/ if (currentLocation.dir_listing)
 		{
-			ResponseBodyIsDirectoryListing();//send back directory listing, implement
+			ResponseBodyIsDirectoryListing();
 			responseContentType = "text/html";
 			sendResponse("200 OK");
+			return ;
 		}
 		//else?? 404 not found??
 	}
@@ -140,20 +173,11 @@ void HttpRequest::methodPost(void)
 {
 	ssize_t charsWritten;
 	int fd;
-	unsigned long contentLength;
 
-	//if (path[0] != '/') //nginx needs /??
-	// throw std::runtime_error("400 Bad Request"); 
-	/*auto it = headers.find("Content-Length");
-	if (it != headers.end())
-		contentLength = std::stoul(it->second);
-	else 
-		throw std::runtime_error("411 Length Required");*/
-	//std::cout << path.c_str() << std::endl;
-	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
-	charsWritten = write(fd, body.c_str(), contentLength);
+	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
@@ -198,6 +222,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 				match_found = true;
 			}
 		}
+		//in case of exact match, return that?
 	}
 	if (!match_found)
 		throw std::runtime_error("404 Not found");
@@ -205,7 +230,9 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 void HttpRequest::doRequest(ServerConfig config)
 {
+	//make sure all response stuff, like response body, is cleared out/empty for every request
 	dump();
+	//std::cout << "path in do request without root: " << path << std::endl;
 	findCurrentLocation(config);
 	path = currentLocation.root + path;
 	std::cout << "path from do request: " << path << std::endl;
