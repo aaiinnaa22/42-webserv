@@ -79,13 +79,13 @@ void HttpRequest::sendResponse(std::string status)
 	//error check
 }
 
-void HttpRequest::setContentType(std::string path)
+void HttpRequest::setContentType(std::string completePath) //?
 {
 	size_t dot;
 	std::string fileExtension;
 
-	dot = path.rfind(".");
-	fileExtension = path.substr(dot + 1, path.length()); //try catch in main
+	dot = completePath.rfind(".");
+	fileExtension = completePath.substr(dot + 1, completePath.length()); //try catch in main
 	if (fileExtension == "html")
 		responseContentType = "text/html";
 	else
@@ -99,7 +99,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	std::string html_content;
 	DIR* dir;
 
-	dir = opendir(path.c_str());
+	dir = opendir(completePath.c_str());
 	if (dir == nullptr)
 		throw std::runtime_error("500 Internal Server Error"); //?
 	
@@ -140,10 +140,10 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 
-	if (path.back() == '/')
+	if (completePath.back() == '/')
 	{
 		//if (!currentLocation.index.empty())
-		//	path = path + currentLocation.index;
+		//	path = path + currentLocation.index; COMPLETE_PATH
 		/*else*/ if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();
@@ -156,7 +156,7 @@ void HttpRequest::methodGet(void)
 
 	//cgi script??
 
-	fd = open(path.c_str(), O_RDONLY); //nonblock?
+	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 		throw std::runtime_error("404 Not found");
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
@@ -164,7 +164,7 @@ void HttpRequest::methodGet(void)
 	close(fd);
 	if (charsRead == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
-	setContentType(path);
+	setContentType(completePath);
 	sendResponse("200 OK");
 }
 
@@ -174,7 +174,7 @@ void HttpRequest::methodPost(void)
 	ssize_t charsWritten;
 	int fd;
 
-	fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read
+	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
 	charsWritten = write(fd, body.c_str(), body.size());
@@ -189,7 +189,7 @@ void HttpRequest::methodDelete(void)
 
 	try 
 	{
-		removed = std::filesystem::remove(path);
+		removed = std::filesystem::remove(completePath);
 		if (removed)
 			throw std::runtime_error("200 OK"); //???
 		else 
@@ -231,15 +231,16 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
-	dump();
+	//dump();
 	std::cout << "path in do request without root: " << path << std::endl;
 	//what!? when trying dir listing several times
 	//path in do request without root: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
 	//path from do request: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
 
 	findCurrentLocation(config);
-	path = currentLocation.root + path;
-	std::cout << "path from do request: " << path << std::endl;
+	completePath = currentLocation.root + path;
+	path.clear();
+	std::cout << "path from do request: " << completePath << std::endl;
 
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
@@ -255,6 +256,7 @@ void HttpRequest::doRequest(ServerConfig config)
 		methodDelete();
 	else 
 		throw std::runtime_error("405 Method not allowed");
+	std::cout << "REQUEST DONE AND RESPONSE SENT" << std::endl;
 }
 
 //Aina end

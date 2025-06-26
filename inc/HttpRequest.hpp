@@ -23,6 +23,7 @@ class HttpRequest
 		std::string responseContentType;
 		int clientfd;
 		LocationConfig currentLocation;
+		std::string completePath;
 		void methodGet();
 		void methodPost();
 		void methodDelete();

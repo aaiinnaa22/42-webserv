@@ -132,7 +132,7 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		}
 		else if (state == COMPLETE)
 		{
-			std::cout << "test: " << request.getPath() << std::endl;
+			std::cout << "PATH IN PARSE DATA: " << request.getPath() << std::endl;
 			request.doRequest(config);
 			return true;
 		}
