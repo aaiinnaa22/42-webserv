@@ -36,6 +36,7 @@ class HttpRequest
 		void		parse(const std::string& request);
 		std::string	getMethod();
 		std::string	getPath();
+		std::string	getPath() const;
 		std::string	getHttpVersion();
 		const std::map<std::string, std::string>& getHeaders() const;
 		void 		setMethod(const std::string& m);

@@ -22,9 +22,13 @@ std::string HttpRequest::getMethod(){
 	return method;
 }
 
-std::string HttpRequest::getPath(){
-	return path;
-}
+// std::string HttpRequest::getPath(){
+// 	return path;
+// }
+
+// std::string HttpRequest::getPath() const{
+// 	return path;
+// }
 
 std::string HttpRequest::getHttpVersion(){
 	return httpVersion;

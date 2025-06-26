@@ -105,7 +105,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 				continue ;
 			}
 			
-			std::cout << "Message from startServer: \n" << buffer << std::endl;
+			//std::cout << "Message from startServer: \n" << buffer << std::endl;
 			auto it = connections.find(fd);
 			if (it == connections.end())//a logic for resetting connetion is necessary ("keep-alive handling")
     			std::cerr << "No parser for fd " << fd << "\n";

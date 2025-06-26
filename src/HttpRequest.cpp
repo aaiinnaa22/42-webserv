@@ -274,6 +274,15 @@ void HttpRequest::setPath(const std::string& p)
 	path = p;
 }
 
+
+std::string HttpRequest::getPath(){
+	return path;
+}
+
+std::string HttpRequest::getPath() const{
+	return path;
+}
+
 void HttpRequest::setHttpVersion(const std::string& v)
 {
 	httpVersion = v; 

@@ -1,5 +1,11 @@
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ConfigParse.hpp"
+//#include "../inc/HttpRequest.hpp"
+
+void	normalize_case(std::string &key)
+{
+	transform(key.begin(), key.end(), key.begin(), ::tolower);
+}
 
 bool is_valid_http_version_syntax(const std::string &version)
 {
@@ -25,6 +31,15 @@ bool is_valid_http_version_syntax(const std::string &version)
     return true;
 }
 
+bool is_ascii(const std::string& s)
+{
+	for (unsigned char c : s)
+	{
+        if (c > 127)
+            return false;
+    }
+    return true;
+}
 
 //TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
 bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
@@ -42,6 +57,8 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 			std::string request_line = buffer.substr(0, line_end);
 			buffer.erase(0, line_end);
 
+			if (!is_ascii(request_line))
+                throw std::runtime_error("400 Bad Request: non-ASCII in request line");
 			std::istringstream stream(request_line);
 			std::string method, path, version;
 			if (!(stream >> method >> path))
@@ -85,15 +102,16 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 					throw std::runtime_error("400 Bad Request");
 
 				std::string key = line.substr(0, colon);
+				normalize_case(key);
 				std::string value = line.substr(colon + 1);
 				value.erase(0, value.find_first_not_of(" "));
 
 				request.addHeader(key, value);
 			}
-			std::string checkHost = request.getHeader("Host");
+			std::string checkHost = request.getHeader("host");
 			if (checkHost.empty())
 				throw std::runtime_error("400 Bad Request");
-			std::string contentLengthVal = request.getHeader("Content-Length");
+			std::string contentLengthVal = request.getHeader("content-length");
 			if (!contentLengthVal.empty())
 			{
 				expected_body_len = std::stoi(contentLengthVal);//stoi check!
@@ -114,6 +132,7 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		}
 		else if (state == COMPLETE)
 		{
+			std::cout << "test: " << request.getPath() << std::endl;
 			request.doRequest(config);
 			return true;
 		}
