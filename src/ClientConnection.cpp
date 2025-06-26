@@ -44,7 +44,6 @@ bool is_ascii(const std::string& s)
 //TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
 bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
 {
-	std::cout << "LETS PARSE DATA" << std::endl;
 	buffer.append(data, len);
 
 	while (true)
@@ -133,7 +132,6 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		}
 		else if (state == COMPLETE)
 		{
-			std::cout << "PATH IN PARSE DATA: " << request.getPath() << std::endl;
 			request.doRequest(config);
 			return true;
 		}

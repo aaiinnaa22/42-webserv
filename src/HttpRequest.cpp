@@ -95,7 +95,7 @@ void HttpRequest::setContentType(std::string completePath) //?
 
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
-	//fix what happens when the dir listing links are clicked
+	//fix if link is a directory
 	std::string html_content;
 	DIR* dir;
 
@@ -115,7 +115,6 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	struct dirent* entry;
 	while ((entry = readdir(dir)) != nullptr)
 	{
-		//std::cout << "PATH FOR ENTRY:" << std::string(entry->d_name) << std::endl;
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //skip entries . and ..
 			continue ;
 		//what about .hiddenfiles?
@@ -133,14 +132,22 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	closedir(dir);
 }
 
+int HttpRequest::checkPathIsDirectory(void)
+{
+	struct stat path_stat;
+	if (stat(completePath.c_str(), &path_stat) != 0)
+		throw std::runtime_error("404 Not Found"); //?
+	return (S_ISDIR(path_stat.st_mode));
+}
+
 //! poll for read and open
 void HttpRequest::methodGet(void)
 {
 	ssize_t charsRead;
 	int fd;
 	char buffer[1000];
-
-	if (completePath.back() == '/')
+	//std::cout << "LETS TRY TO GET" << completePath << std::endl;
+	if (completePath.back() == '/' || checkPathIsDirectory() == 1)
 	{
 		//if (!currentLocation.index.empty())
 		//	path = path + currentLocation.index; COMPLETE_PATH
@@ -156,9 +163,11 @@ void HttpRequest::methodGet(void)
 
 	//cgi script??
 
+	//std::cout << "FINDING FILE..." << std::endl;
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 		throw std::runtime_error("404 Not found");
+	//std::cout << "FILE FOUND!" << std::endl;
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, charsRead);
 	close(fd);
@@ -257,7 +266,6 @@ void HttpRequest::doRequest(ServerConfig config)
 		methodDelete();
 	else 
 		throw std::runtime_error("405 Method not allowed");
-	std::cout << "REQUEST DONE AND RESPONSE SENT" << std::endl;
 }
 
 //Aina end

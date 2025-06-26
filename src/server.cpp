@@ -114,7 +114,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
     			auto &conn = it->second;
 				try 
 				{
-					std::cout << "INCOMING REQUEST BUFFER IS: " << std::string(buffer) << std::endl;
+					//std::cout << "INCOMING REQUEST BUFFER IS: " << std::string(buffer) << std::endl;
 					if (conn.parseData(buffer, bytes_read, config))
 						connections.erase(fd);
 				}

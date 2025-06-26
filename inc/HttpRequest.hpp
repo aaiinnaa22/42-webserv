@@ -7,6 +7,7 @@
 #include "ConfigParse.hpp"
 #include <dirent.h> //opendir, closedir....
 #include <cstring> //strcmp
+#include <sys/stat.h> //stat()
 
 class HttpRequest
 {
@@ -32,6 +33,7 @@ class HttpRequest
 		void setContentType(std::string path);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
+		int checkPathIsDirectory(void);
 
 	public:
 		void		parse(const std::string& request);
