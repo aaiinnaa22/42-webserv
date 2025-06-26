@@ -233,10 +233,11 @@ void HttpRequest::doRequest(ServerConfig config)
 	//make sure all response stuff, like response body, is cleared out/empty for every request
 	//dump();
 	std::cout << "path in do request without root: " << path << std::endl;
-	//what!? when trying dir listing several times
-	//path in do request without root: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
-	//path from do request: /home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/home/aalbrech/aina_gits/webserv/pythontest.py
-
+	if (path.empty())
+	{
+		std::cout << "no path incoming to doRequest...stopping request" << std::endl;
+		return ;
+	}
 	findCurrentLocation(config);
 	completePath = currentLocation.root + path;
 	path.clear();
