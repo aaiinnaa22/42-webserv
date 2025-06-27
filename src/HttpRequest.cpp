@@ -76,11 +76,11 @@ void HttpRequest::sendResponse(std::string status)
 	"Content-Length: " + contentLength + "\r\n" +
 	"\r\n";
 
-	std::cout << "SENDING HEADERS: " << responseHeaders << std::endl;
+	//std::cout << "SENDING HEADERS: " << responseHeaders << std::endl;
 	sending = send(clientfd, responseHeaders.c_str(), responseHeaders.size(), 0);
 	//error check
 
-	std::cout << "SENDING BODY..." << std::endl;
+	//std::cout << "SENDING BODY..." << std::endl;
 	sending = send(clientfd, responseBody.c_str(), responseBody.size(), 0);
 	//error check
 }
@@ -106,7 +106,7 @@ void HttpRequest::setContentType(void)
 		responseContentType = "image/x-icon";
 	else
 		throw std::runtime_error("415 Unsupported Media Type"); //?
-	std::cout << "content type is " << responseContentType << std::endl;
+	//std::cout << "content type is " << responseContentType << std::endl;
 }
 
 
@@ -308,7 +308,7 @@ void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
 	dump();
-	std::cout << "path in do request without root: " << path << std::endl;
+	//std::cout << "path in do request without root: " << path << std::endl;
 	if (path.empty())
 	{
 		std::cout << "no path incoming to doRequest...stopping request" << std::endl;
@@ -318,7 +318,7 @@ void HttpRequest::doRequest(ServerConfig config)
 	makeRootAbsolute(); //test
 	completePath = currentLocation.root + path;
 	path.clear();
-	std::cout << "path from do request: " << completePath << std::endl;
+	//std::cout << "path from do request: " << completePath << std::endl;
 	checkPathIsSafe();
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
