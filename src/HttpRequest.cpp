@@ -256,15 +256,11 @@ void HttpRequest::checkPathIsSafe(std::string locationRoot)
 
 	while (end <= completePath.size())
 	{
-		std::cout << end << std::endl;
 		if (end == completePath.size() || completePath[end] == '/')
 		{
-			std::cout << "if statement" << std::endl;
 			if (end > start)
 			{
-				std::cout << end << " is bigger than " << start << std::endl;
 				std::string part = completePath.substr(start, end - start);
-				std::cout << "part is " << part << std::endl; 
 				if (part == ".")
 					;
 				else if (part == "..")
@@ -286,7 +282,6 @@ void HttpRequest::checkPathIsSafe(std::string locationRoot)
 		if (i != pathParts.size() - 1)
 			normalizedPath += "/";
 	}
-	std::cout << "NORMALIZED PATH: " << normalizedPath << std::endl;
 	if (normalizedPath.find(locationRoot) != 0)
 		throw std::runtime_error("403 Forbidden");
 }
