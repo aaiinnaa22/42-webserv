@@ -65,17 +65,23 @@ HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 void HttpRequest::sendResponse(std::string status)
 {
 	ssize_t sending;
-	std::string response;
+	std::string responseHeaders;
 	std::string contentLength;
 
 	contentLength = std::to_string(responseBody.size());
 
-	response =
+	responseHeaders =
 	"HTTP/1.1 " + status + "\r\n" +
 	"Content-Type: " + responseContentType + "\r\n" +
 	"Content-Length: " + contentLength + "\r\n" +
-	"\r\n" + responseBody;
-	sending = send(clientfd, response.c_str(), response.size(), 0);
+	"\r\n";
+
+	std::cout << "SENDING HEADERS: " << responseHeaders << std::endl;
+	sending = send(clientfd, responseHeaders.c_str(), responseHeaders.size(), 0);
+	//error check
+
+	std::cout << "SENDING BODY..." << std::endl;
+	sending = send(clientfd, responseBody.c_str(), responseBody.size(), 0);
 	//error check
 }
 
@@ -100,6 +106,7 @@ void HttpRequest::setContentType(void)
 		responseContentType = "image/x-icon";
 	else
 		throw std::runtime_error("415 Unsupported Media Type"); //?
+	std::cout << "content type is " << responseContentType << std::endl;
 }
 
 
@@ -158,9 +165,9 @@ void HttpRequest::methodGet(void)
 	//std::cout << "LETS TRY TO GET" << completePath << std::endl;
 	if (completePath.back() == '/' || checkPathIsDirectory() == 1)
 	{
-		//if (!currentLocation.index.empty())
-		//	path = path + currentLocation.index; COMPLETE_PATH
-		/*else*/ if (currentLocation.dir_listing)
+		if (!currentLocation.index.empty())
+			completePath = completePath + currentLocation.index;
+		else if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();
 			responseContentType = "text/html";
@@ -248,7 +255,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 		throw std::runtime_error("404 Not found");
 }
 
-void HttpRequest::checkPathIsSafe(std::string locationRoot)
+void HttpRequest::checkPathIsSafe(void)
 {
 	std::vector<std::string> pathParts;
 	int start = 0;
@@ -282,14 +289,25 @@ void HttpRequest::checkPathIsSafe(std::string locationRoot)
 		if (i != pathParts.size() - 1)
 			normalizedPath += "/";
 	}
-	if (normalizedPath.find(locationRoot) != 0)
+	if (normalizedPath.find(currentLocation.root) != 0)
+	{
+		std::cout << "normalized path is forbidden..." << std::endl;
 		throw std::runtime_error("403 Forbidden");
+	}
+}
+
+void HttpRequest::makeRootAbsolute(void)
+{
+	std::filesystem::path root(currentLocation.root);
+	if (root.is_relative())
+		root = std::filesystem::current_path() / root;
+	currentLocation.root = std::filesystem::canonical(root);
 }
 
 void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
-	//dump();
+	dump();
 	std::cout << "path in do request without root: " << path << std::endl;
 	if (path.empty())
 	{
@@ -297,10 +315,11 @@ void HttpRequest::doRequest(ServerConfig config)
 		return ;
 	}
 	findCurrentLocation(config);
+	makeRootAbsolute(); //test
 	completePath = currentLocation.root + path;
 	path.clear();
 	std::cout << "path from do request: " << completePath << std::endl;
-	checkPathIsSafe(currentLocation.root);
+	checkPathIsSafe();
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 		currentLocation.methods.end())

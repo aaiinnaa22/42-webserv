@@ -34,7 +34,8 @@ class HttpRequest
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
-		void checkPathIsSafe(std::string locationRoot);
+		void checkPathIsSafe(void);
+		void makeRootAbsolute(void);
 
 	public:
 		void		parse(const std::string& request);
