@@ -79,15 +79,25 @@ void HttpRequest::sendResponse(std::string status)
 	//error check
 }
 
-void HttpRequest::setContentType(std::string completePath) //?
+void HttpRequest::setContentType(void)
 {
 	size_t dot;
 	std::string fileExtension;
 
 	dot = completePath.rfind(".");
+	if (dot == std::string::npos)
+		throw std::runtime_error("415 Unsupported Media Type");
 	fileExtension = completePath.substr(dot + 1, completePath.length()); //try catch in main
-	if (fileExtension == "html")
-		responseContentType = "text/html";
+	if (fileExtension == "html" || fileExtension == "css")
+		responseContentType = "text/" + fileExtension;
+	else if (fileExtension == "png" || fileExtension == "gif")
+		responseContentType = "image/" + fileExtension;
+	else if (fileExtension == "jpg" || fileExtension == "jpeg")
+		responseContentType = "image/jpeg";
+	else if (fileExtension == "txt")
+		responseContentType = "text/plain";
+	else if (fileExtension == "ico")
+		responseContentType = "image/x-icon";
 	else
 		throw std::runtime_error("415 Unsupported Media Type"); //?
 }
@@ -95,7 +105,6 @@ void HttpRequest::setContentType(std::string completePath) //?
 
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
-	//fix if link is a directory
 	std::string html_content;
 	DIR* dir;
 
@@ -136,7 +145,7 @@ int HttpRequest::checkPathIsDirectory(void)
 {
 	struct stat path_stat;
 	if (stat(completePath.c_str(), &path_stat) != 0)
-		throw std::runtime_error("404 Not Found"); //?
+		throw std::runtime_error("404 Not Found");
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -173,7 +182,7 @@ void HttpRequest::methodGet(void)
 	close(fd);
 	if (charsRead == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
-	setContentType(completePath);
+	setContentType();
 	sendResponse("200 OK");
 }
 
@@ -183,13 +192,15 @@ void HttpRequest::methodPost(void)
 	ssize_t charsWritten;
 	int fd;
 
-	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read
+	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1)
 		throw std::runtime_error("500 Internal Server Error"); //?
+	setContentType();
+	sendResponse("200 OK");
 }
 
 void HttpRequest::methodDelete(void)
@@ -237,6 +248,49 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 		throw std::runtime_error("404 Not found");
 }
 
+void HttpRequest::checkPathIsSafe(std::string locationRoot)
+{
+	std::vector<std::string> pathParts;
+	int start = 0;
+	int end = 0;
+
+	while (end <= completePath.size())
+	{
+		std::cout << end << std::endl;
+		if (end == completePath.size() || completePath[end] == '/')
+		{
+			std::cout << "if statement" << std::endl;
+			if (end > start)
+			{
+				std::cout << end << " is bigger than " << start << std::endl;
+				std::string part = completePath.substr(start, end - start);
+				std::cout << "part is " << part << std::endl; 
+				if (part == ".")
+					;
+				else if (part == "..")
+				{
+					if (!pathParts.empty())
+						pathParts.pop_back();
+				}
+				else
+					pathParts.push_back(part);
+			}
+			start = end + 1;
+		}
+		++end;
+	}
+	std::string normalizedPath = "/";
+	for (int i = 0; i < pathParts.size(); ++i)
+	{
+		normalizedPath += pathParts[i];
+		if (i != pathParts.size() - 1)
+			normalizedPath += "/";
+	}
+	std::cout << "NORMALIZED PATH: " << normalizedPath << std::endl;
+	if (normalizedPath.find(locationRoot) != 0)
+		throw std::runtime_error("403 Forbidden");
+}
+
 void HttpRequest::doRequest(ServerConfig config)
 {
 	//make sure all response stuff, like response body, is cleared out/empty for every request
@@ -251,7 +305,7 @@ void HttpRequest::doRequest(ServerConfig config)
 	completePath = currentLocation.root + path;
 	path.clear();
 	std::cout << "path from do request: " << completePath << std::endl;
-
+	checkPathIsSafe(currentLocation.root);
 	if (method == "GET" && 
 		std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 		currentLocation.methods.end())

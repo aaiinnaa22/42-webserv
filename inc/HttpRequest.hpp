@@ -30,10 +30,11 @@ class HttpRequest
 		void methodDelete();
 		void doCgi();
 		void sendResponse(std::string status);
-		void setContentType(std::string path);
+		void setContentType(void);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
+		void checkPathIsSafe(std::string locationRoot);
 
 	public:
 		void		parse(const std::string& request);
