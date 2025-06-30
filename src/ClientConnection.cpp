@@ -43,7 +43,7 @@ bool is_ascii(const std::string& s)
 
 void ClientConnection::resetState()
 {
-	state == REQUEST_LINE;
+	state = REQUEST_LINE;
 	buffer.clear();
 	expected_body_len = 0;
 	request = HttpRequest(fd);
@@ -116,6 +116,9 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 
 				request.addHeader(key, value);
 			}
+			std::string connType = request.getHeader("connection");
+			if (connType == "close")
+				isKeepAlive = false;
 			std::string checkHost = request.getHeader("host");
 			if (checkHost.empty())
 				throw std::runtime_error("400 Bad Request");

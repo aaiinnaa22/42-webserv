@@ -135,6 +135,14 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 					response += e.what();
 					response += "</h1>";
 					send(fd, response.c_str(), response.size(), 0);
+					if (!conn.getIsAlive())
+					{
+						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+						close(fd);
+						connections.erase(fd);
+					}
+					else
+						conn.resetState();
 				}
 			}
 			// if buffer is empty after recv it means client closed the connection???
