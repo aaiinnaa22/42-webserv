@@ -6,11 +6,7 @@
 #include <cstring>
 #include <errno.h>
 
- Server::Server(){
-	 int _on = 1;
-	 int _serverfd = 0;
-	 int _epollfd = 0;
-	 int _read_count = 0;
+ Server::Server() : _on(1), _serverfd(0), _epollfd(0), _read_count(0){
 	 int _clientfd = 0; // unusedd??
  }
 
