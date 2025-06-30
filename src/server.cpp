@@ -119,16 +119,12 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 					{
 						if (!conn.getIsAlive())
 						{
-							std::cout << "connection close logic" << std::endl;
 							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
 							close(fd);
 							connections.erase(fd);
 						}
 						else
-						{
-							std::cout << "connection reset logic" << std::endl;
 							conn.resetState();
-						}
 					}
 				}
 				catch(std::exception& e)

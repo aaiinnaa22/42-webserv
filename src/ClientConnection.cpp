@@ -142,10 +142,7 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		{
 			std::string connectionType = request.getHeader("connection");
 			if (connectionType == "close")
-			{
 				isKeepAlive = false;
-				std::cout << "connection header result " << isKeepAlive << std::endl;
-			}
 			request.doRequest(config);
 			return true;
 		}
