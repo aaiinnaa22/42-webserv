@@ -1,6 +1,10 @@
 #include "../inc/Server.hpp"
 #include "../inc/ConfigParse.hpp"
 
+bool gSignalClose = false;
+
+void signal_handler(int signal){gSignalClose = true;}
+
 int main(int argc, char **argv)
 {
 	std::string	confFile;
@@ -15,6 +19,7 @@ int main(int argc, char **argv)
 		ConfigParse parser;
 		Server server;
 
+		signal(SIGINT, signal_handler);
 		parser.confParse(confFile);
 		const std::vector<ServerConfig> &servers = parser.getServers();
 		if (servers.empty()) 

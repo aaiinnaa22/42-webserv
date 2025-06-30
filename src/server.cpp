@@ -216,14 +216,24 @@ int Server::start_epoll(ServerConfig config)
 	struct epoll_event ev;
 	ev.events = EPOLLIN | EPOLLET; // not sure if I need this here.
 	ev.data.fd = _serverfd;
-	if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev) < 0 )
+	if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev) < 0 ){
+		close(_epollfd);
 		return -1;
-	while(1)
+	}
+	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
 	{
 		_read_count = epoll_wait(_epollfd, events, 42, -1); // returns number of events that are ready to be handled
 		if (_read_count != 0)
 			handle_epoll_event(events, config);
 	}
+	for (size_t k = 0; k < connections.size(); k++)
+	{
+		std::cout << k << " " << connections[k].getFd() << std::endl;
+		if (connections[k].getFd() != -1)	
+			close(connections[k].getFd());
+	}
+	close(_serverfd);
+	close(_epollfd);
 	return 0;
 }
 /* ....Initiliazing Socket. 
@@ -291,10 +301,12 @@ void Server::startServer(ServerConfig config)//(int listen_port, std::string hos
 	// at this point I have serverfd open so it needs to be closed.
 	int check = set_non_blocking(_serverfd);
 	if (check < 0){
+		close (_serverfd);
 		throw std::runtime_error("Error! Socket is kill");
 	}
 	check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
 	if (check < 0){
+		close (_serverfd);
 		throw std::runtime_error("Error! Failed to create setsockopt");
 	}
 	struct sockaddr_in serverAddress; // memset struct to 0 ??
@@ -306,15 +318,18 @@ void Server::startServer(ServerConfig config)//(int listen_port, std::string hos
 	std::cout << "Server ip: " << config.host << " Port: " << config.listen_port <<  std::endl;
  	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	if (check == -1){
+		close(_serverfd);
 		std::cout << errno << std::endl;
 		throw std::runtime_error("Error! Failed to bind server socket");
 	}
 	check = listen(_serverfd, 5);
 	if (check < 0){
+		close (_serverfd);
 		throw std::runtime_error("Error! Failed to start listening server socket");
 	}
 	check = start_epoll(config);
-	if (check < 0)
+	if (check < 0){
+		close (_serverfd);
 		 throw std::runtime_error("Error! epoll_ctl failed");
-	close(_serverfd);
+	}
 }

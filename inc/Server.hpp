@@ -10,8 +10,11 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <map>
+#include <signal.h>
 #include "ConfigParse.hpp" //ServerConfig
 #include "ClientConnection.hpp"
+
+extern bool gSignalClose;
 
 class Server {
     private:
