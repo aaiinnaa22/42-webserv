@@ -41,6 +41,14 @@ bool is_ascii(const std::string& s)
     return true;
 }
 
+void ClientConnection::resetState()
+{
+	state == REQUEST_LINE;
+	buffer.clear();
+	expected_body_len = 0;
+	request = HttpRequest(fd);
+}
+
 //TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
 bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
 {
@@ -132,6 +140,12 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 		}
 		else if (state == COMPLETE)
 		{
+			std::string connectionType = request.getHeader("connection");
+			if (connectionType == "close")
+			{
+				isKeepAlive = false;
+				std::cout << "connection header result " << isKeepAlive << std::endl;
+			}
 			request.doRequest(config);
 			return true;
 		}
