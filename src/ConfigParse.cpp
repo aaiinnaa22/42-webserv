@@ -232,12 +232,8 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 
 int ConfigParse::confParse(std::string &filename)
 {
-	//std::cout << "messege from confParse" << std::endl;
 	if (std::filesystem::path(filename).extension() != ".conf")
-	{
-		std::cerr << "Invalid file extension" << std::endl;
-		return 1;
-	}
+		throw(std::runtime_error("Invalid file extension"));
 	std::ifstream file;
 	file.open(filename);
 	if (file.fail())
@@ -245,10 +241,9 @@ int ConfigParse::confParse(std::string &filename)
 		std::cout << "Error opening config file" << std::endl;
 		return 1;
 	}
-	// else
-	// 	std::cout << "Sesame opened" << std::endl;
 	std::string line;
 	bool insideBlock = false;
+	std::set<std::pair<std::string, int>> seenPairs; 
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
@@ -261,6 +256,12 @@ int ConfigParse::confParse(std::string &filename)
 				if (line.find('{') != std::string::npos)
 				{
 					ServerConfig s = parseServerBlock(file);
+					std::pair<std::string, int> hpPair = {s.host, s.listen_port};
+                    if (seenPairs.find(hpPair) != seenPairs.end())
+					{
+                        throw(std::runtime_error("Parsing error: duplicate listen host and port found"));
+					}
+					seenPairs.insert(hpPair);
 					servers.push_back(s);
 				}
 				else
@@ -273,11 +274,17 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find('{') != std::string::npos)
 			{
 				ServerConfig s = parseServerBlock(file);
+				std::pair<std::string, int> hpPair = {s.host, s.listen_port};
+				if (seenPairs.find(hpPair) != seenPairs.end())
+				{
+					throw std::runtime_error("Parsing error: duplicate listen host and port found");
+				}
+				seenPairs.insert(hpPair);
 				servers.push_back(s);
 				insideBlock = false;
 			}
 			else
-				std::cerr << "Error: expected '{' after server directive\n";
+				throw(std::runtime_error("Error: expected '{' after server directive\n"));
 		}
 	}
 	file.close();
