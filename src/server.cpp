@@ -6,8 +6,9 @@
 #include <cstring>
 #include <errno.h>
 
- Server::Server() : _on(1), _serverfd(0), _epollfd(0), _read_count(0){
-	 int _clientfd = 0; // unusedd??
+ Server::Server() : _on(1), _epollfd(0), _read_count(0){
+	_serverfd[5] = {0};
+	int _clientfd = 0; // unusedd??
  }
 
  Server::~Server(){}
@@ -64,35 +65,38 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
     socklen_t addr_len = sizeof(addr);
 	//std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
 	for(int i = 0; i < _read_count; i++)
-	{
+	{	
 		fd = events[i].data.fd;
-		if ((fd == _serverfd) && (events[i].events & EPOLLIN)) // Probably no need to check EPOLLIN
+		for(int f = 0; f < servers.size(); f++)
 		{
-			int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
-			if (clientfd < 0){
-				std::cerr << "Failed to establish connection1" << std::endl;
-				close(clientfd);
+			if ((fd == _serverfd[f]) && (events[i].events & EPOLLIN)) // Probably no need to check EPOLLIN
+			{
+				int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
+				if (clientfd < 0){
+					std::cerr << "Failed to establish connection1" << std::endl;
+					close(clientfd);
+				}
+				if (set_non_blocking(clientfd) < 0){
+					std::cerr << "Failed to establish connection1" << std::endl;
+					close(clientfd);
+				}
+				ev.data.fd = clientfd;
+				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
+					std::cerr << "Failed to establish connection1" << std::endl;
+					close(clientfd);
+				}
+				//connections[clientfd] = ClientConnection();
+				connections.try_emplace(clientfd, clientfd);
+				// Just here to print information;
+				uint16_t src_port = ntohs(addr.sin_port);
+				in_addr_t saddr = addr.sin_addr.s_addr;
+				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
+				const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
+				std::cout << "New connection ip: " << cip;
+				std::cout << " Port: " << src_port << std::endl;
 			}
-			if (set_non_blocking(clientfd) < 0){
-				std::cerr << "Failed to establish connection1" << std::endl;
-				close(clientfd);
-			}
-			ev.data.fd = clientfd;
-			if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
-				std::cerr << "Failed to establish connection1" << std::endl;
-				close(clientfd);
-			}
-			//connections[clientfd] = ClientConnection();
-			connections.try_emplace(clientfd, clientfd);
-			// Just here to print information;
-			uint16_t src_port = ntohs(addr.sin_port);
-			in_addr_t saddr = addr.sin_addr.s_addr;
-			char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
-			const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
-			std::cout << "New connection ip: " << cip;
-			std::cout << " Port: " << src_port << std::endl;
 		}
-		else if ((events[i].events & EPOLLIN))
+		if ((events[i].events & EPOLLIN))
 		{
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
@@ -111,7 +115,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				try 
 				{
 					//std::cout << "INCOMING REQUEST BUFFER IS: " << std::string(buffer) << std::endl;
-					if (conn.parseData(buffer, bytes_read, servers[0])) // THE SERVER NEEDS TO BE CORRECT NUMBER HERE !!!!
+					if (conn.parseData(buffer, bytes_read, servers)) // THE SERVER NEEDS TO BE CORRECT NUMBER HERE !!!!
 					{
 						if (!conn.getIsAlive())
 						{
@@ -229,10 +233,11 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 		return -1;
 	struct epoll_event ev;
 	ev.events = EPOLLIN; // | EPOLLET; // not sure if I need this here.
-	ev.data.fd = _serverfd;
-	if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev) < 0 ){
-		close(_epollfd);
-		return -1;
+	for(int i = 0; i < servers.size(); i++){
+		ev.data.fd = _serverfd[i];
+		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0 ){
+			close(_epollfd);
+			return -1;}
 	}
 	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
 	{
@@ -246,7 +251,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 		if (connections[k].getFd() != -1)	
 			close(connections[k].getFd());
 	}
-	close(_serverfd);
+	close(_serverfd[0]);
 	close(_epollfd);
 	return 0;
 }
@@ -310,19 +315,19 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 {
 	for(int i = 0; i < servers.size(); i++)
 	{
-		_serverfd = socket(AF_INET, SOCK_STREAM, 0);
-		if (_serverfd < 0){
+		_serverfd[i] = socket(AF_INET, SOCK_STREAM, 0);
+		if (_serverfd[i] < 0){
 			throw std::runtime_error("Error! Failed to create socket"); 
 		}
 		// at this point I have serverfd open so it needs to be closed.
-		int check = set_non_blocking(_serverfd);
+		int check = set_non_blocking(_serverfd[i]);
 		if (check < 0){
-			close (_serverfd);
+			close (_serverfd[i]);
 			throw std::runtime_error("Error! Socket is kill");
 		}
-		check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
+		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
 		if (check < 0){
-			close (_serverfd);
+			close (_serverfd[i]);
 			throw std::runtime_error("Error! Failed to create setsockopt");
 		}
 		struct sockaddr_in serverAddress; // memset struct to 0 ??
@@ -332,22 +337,22 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 		uint32_t ip_address = get_networkaddress(servers[i].host);
 		serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
 		std::cout << "Server ip: " << servers[i].host << " Port: " << servers[i].listen_port <<  std::endl;
-		check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+		check = bind(_serverfd[i], (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 		if (check == -1){
-			close(_serverfd);
+			close(_serverfd[i]);
 			std::cout << errno << std::endl;
 			throw std::runtime_error("Error! Failed to bind server socket");
 		}
-		check = listen(_serverfd, 128);
+		check = listen(_serverfd[i], 128);
 		if (check < 0){
-			close (_serverfd);
+			close (_serverfd[i]);
 			throw std::runtime_error("Error! Failed to start listening server socket");
 	}
 	}
 	int check1 = 0;
 	check1 = start_epoll(servers);
 	if (check1 < 0){
-		close (_serverfd);
+		close (_serverfd[0]);
 		 throw std::runtime_error("Error! epoll_ctl failed");
 	}
 }

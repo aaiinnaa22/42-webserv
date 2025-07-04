@@ -19,7 +19,7 @@ extern bool gSignalClose;
 class Server {
     private:
         int _on;
-        int _serverfd;
+        int _serverfd[5];
         int _epollfd;
         int _read_count;
         int _clientfd; //unused???

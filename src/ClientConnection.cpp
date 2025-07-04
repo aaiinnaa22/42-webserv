@@ -50,7 +50,7 @@ void ClientConnection::resetState()
 }
 
 //TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
-bool ClientConnection::parseData(const char *data, size_t len, ServerConfig config)
+bool ClientConnection::parseData(const char *data, size_t len, std::vector<ServerConfig> servers)
 {
 	buffer.append(data, len);
 
@@ -146,7 +146,7 @@ bool ClientConnection::parseData(const char *data, size_t len, ServerConfig conf
 			std::string connectionType = request.getHeader("connection");
 			if (connectionType == "close")
 				isKeepAlive = false;
-			request.doRequest(config);
+			request.doRequest(servers[0]);
 			return true;
 		}
 	}
