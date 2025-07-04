@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 		// 		std::cout << std::endl << "------------------" << std::endl;
 		// 	}
 		// }
-		server.startServer(servers[0]);//(servers[0].listen_port, servers[0].host);
+		server.startServer(servers);//(servers[0].listen_port, servers[0].host);
 	}
 	catch(std::exception& e){
 		std::cerr << e.what() << std::endl;

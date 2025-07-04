@@ -300,7 +300,7 @@ uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] <
 return ip_host_order;
 }
 
-void Server::startServer(ServerConfig config)//(int listen_port, std::string host)
+void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, std::string host)
 {
 	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_serverfd < 0){
@@ -320,10 +320,10 @@ void Server::startServer(ServerConfig config)//(int listen_port, std::string hos
 	struct sockaddr_in serverAddress; // memset struct to 0 ??
 	memset(&serverAddress, 0, sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
-	serverAddress.sin_port = htons(config.listen_port); // random working port in Hive
-	uint32_t ip_address = get_networkaddress(config.host);
+	serverAddress.sin_port = htons(servers[0].listen_port); // random working port in Hive
+	uint32_t ip_address = get_networkaddress(servers[0].host);
 	serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
-	std::cout << "Server ip: " << config.host << " Port: " << config.listen_port <<  std::endl;
+	std::cout << "Server ip: " << servers[0].host << " Port: " << servers[0].listen_port <<  std::endl;
  	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 	if (check == -1){
 		close(_serverfd);
@@ -335,7 +335,7 @@ void Server::startServer(ServerConfig config)//(int listen_port, std::string hos
 		close (_serverfd);
 		throw std::runtime_error("Error! Failed to start listening server socket");
 	}
-	check = start_epoll(config);
+	check = start_epoll(servers[0]);
 	if (check < 0){
 		close (_serverfd);
 		 throw std::runtime_error("Error! epoll_ctl failed");
