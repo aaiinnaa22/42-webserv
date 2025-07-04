@@ -59,10 +59,10 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 {
 	int fd;
 	struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLET;
+    ev.events = EPOLLIN; // | EPOLLET;
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
-
+	std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{
 		fd = events[i].data.fd;
@@ -131,6 +131,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 					response += e.what();
 					response += "</h1>";
 					send(fd, response.c_str(), response.size(), 0);
+					std::cout << response << "-->response test" << std::endl;
 					if (!conn.getIsAlive())
 					{
 						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
@@ -158,6 +159,11 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 			connections.erase(fd);
 			continue ;
 		}
+		//std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
+		// for (size_t k = 0; k < connections.size(); k++)
+		// {
+		// 	std::cout << " Current connections" << connections[k].getFd() << std::endl;
+		// }
 	}
 }
 /*...Create a new epoll instance
@@ -217,12 +223,12 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 	*/
 int Server::start_epoll(ServerConfig config)
 {
-	struct epoll_event events[100]; // FIgure better number here, Numeber of events epoll_wait can return?
+	struct epoll_event events[200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
 		return -1;
 	struct epoll_event ev;
-	ev.events = EPOLLIN | EPOLLET; // not sure if I need this here.
+	ev.events = EPOLLIN; // | EPOLLET; // not sure if I need this here.
 	ev.data.fd = _serverfd;
 	if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd, &ev) < 0 ){
 		close(_epollfd);
@@ -230,7 +236,7 @@ int Server::start_epoll(ServerConfig config)
 	}
 	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
 	{
-		_read_count = epoll_wait(_epollfd, events, 42, -1); // returns number of events that are ready to be handled
+		_read_count = epoll_wait(_epollfd, events, 1000, -1); // returns number of events that are ready to be handled
 		if (_read_count != 0)
 			handle_epoll_event(events, config);
 	}
@@ -330,7 +336,7 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 		std::cout << errno << std::endl;
 		throw std::runtime_error("Error! Failed to bind server socket");
 	}
-	check = listen(_serverfd, 5);
+	check = listen(_serverfd, 128);
 	if (check < 0){
 		close (_serverfd);
 		throw std::runtime_error("Error! Failed to start listening server socket");

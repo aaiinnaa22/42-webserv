@@ -299,10 +299,18 @@ void HttpRequest::checkPathIsSafe(void)
 void HttpRequest::makeRootAbsolute(void)
 {
 	std::filesystem::path root(currentLocation.root);
-	if (root.is_relative())
-		root = std::filesystem::current_path() / root;
-	currentLocation.root = std::filesystem::canonical(root);
+	try
+	{
+		if (root.is_relative())
+			root = std::filesystem::current_path() / root;
+		currentLocation.root = std::filesystem::canonical(root);
+	}
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		std::cout << "make absolute error? should be 404/ 403?" << std::endl;
+	}
 }
+
 
 void HttpRequest::doRequest(ServerConfig config)
 {

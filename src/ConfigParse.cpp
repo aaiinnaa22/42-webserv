@@ -154,14 +154,20 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		std::string value = extractConfig(line, "listen");
 		if (!value.empty())
 		{
-			s1.listen_port = stoi(value);//TODO: check
-			//std::cout << s1.listen_port << "-->listen port from struct\n";
-		}
-		value = extractConfig(line, "host");
-		if (!value.empty())
-		{
-			s1.host = value;
+			size_t colonPos = value.find(':');
+			if (colonPos != std::string::npos)
+			{
+				s1.host = value.substr(0, colonPos);
+				s1.listen_port = std::stoi(value.substr(colonPos + 1));
+			}
+			else
+			{
+				s1.listen_port = std::stoi(value);
+				if (s1.host.empty())
+					s1.host = "0.0.0.0";
+			}
 			//std::cout << s1.host << "-->host from struct\n";
+			//std::cout << s1.listen_port << "-->listen port from struct\n";
 		}
 		value = extractConfig(line, "server_name");
 		if (!value.empty())
