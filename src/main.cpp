@@ -27,9 +27,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	const std::vector<ServerConfig> &servers = parser.getServers();
-	if (servers.empty()) 
+	if (servers.empty() || servers.size() > 5) 
 	{
-		std::cerr << "No server blocks parsed! servers vector is empty.\n";
+		if (servers.empty())
+			std::cerr << "No server blocks parsed! servers vector is empty.\n";
+		else
+			std::cerr << "Too many server blocks in the config file.\n";
 		return 1;
 	}
 	else
@@ -42,7 +45,7 @@ int main(int argc, char **argv)
 				std::cout << servers[i].host << " --> host\n";
 			}
 			Server server;
-			server.startServer(servers);//(servers[0].listen_port, servers[0].host);
+			server.startServer(servers);
 		}
 		catch(std::exception& e){
 			std::cerr << e.what() << std::endl;
