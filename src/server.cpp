@@ -62,7 +62,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
     ev.events = EPOLLIN; // | EPOLLET;
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
-	std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+	//std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{
 		fd = events[i].data.fd;
@@ -308,41 +308,45 @@ return ip_host_order;
 
 void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, std::string host)
 {
-	_serverfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (_serverfd < 0){
-		throw std::runtime_error("Error! Failed to create socket"); 
+	for(int i = 0; i < servers.size(); i++)
+	{
+		_serverfd = socket(AF_INET, SOCK_STREAM, 0);
+		if (_serverfd < 0){
+			throw std::runtime_error("Error! Failed to create socket"); 
+		}
+		// at this point I have serverfd open so it needs to be closed.
+		int check = set_non_blocking(_serverfd);
+		if (check < 0){
+			close (_serverfd);
+			throw std::runtime_error("Error! Socket is kill");
+		}
+		check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
+		if (check < 0){
+			close (_serverfd);
+			throw std::runtime_error("Error! Failed to create setsockopt");
+		}
+		struct sockaddr_in serverAddress; // memset struct to 0 ??
+		memset(&serverAddress, 0, sizeof(sockaddr_in));
+		serverAddress.sin_family = AF_INET;  // ipV4
+		serverAddress.sin_port = htons(servers[i].listen_port); 
+		uint32_t ip_address = get_networkaddress(servers[i].host);
+		serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
+		std::cout << "Server ip: " << servers[i].host << " Port: " << servers[i].listen_port <<  std::endl;
+		check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+		if (check == -1){
+			close(_serverfd);
+			std::cout << errno << std::endl;
+			throw std::runtime_error("Error! Failed to bind server socket");
+		}
+		check = listen(_serverfd, 128);
+		if (check < 0){
+			close (_serverfd);
+			throw std::runtime_error("Error! Failed to start listening server socket");
 	}
-	// at this point I have serverfd open so it needs to be closed.
-	int check = set_non_blocking(_serverfd);
-	if (check < 0){
-		close (_serverfd);
-		throw std::runtime_error("Error! Socket is kill");
 	}
-	check = setsockopt(_serverfd, SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
-	if (check < 0){
-		close (_serverfd);
-		throw std::runtime_error("Error! Failed to create setsockopt");
-	}
-	struct sockaddr_in serverAddress; // memset struct to 0 ??
-	memset(&serverAddress, 0, sizeof(sockaddr_in));
-	serverAddress.sin_family = AF_INET;  // ipV4
-	serverAddress.sin_port = htons(servers[0].listen_port); 
-	uint32_t ip_address = get_networkaddress(servers[0].host);
-	serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
-	std::cout << "Server ip: " << servers[0].host << " Port: " << servers[0].listen_port <<  std::endl;
- 	check = bind(_serverfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-	if (check == -1){
-		close(_serverfd);
-		std::cout << errno << std::endl;
-		throw std::runtime_error("Error! Failed to bind server socket");
-	}
-	check = listen(_serverfd, 128);
-	if (check < 0){
-		close (_serverfd);
-		throw std::runtime_error("Error! Failed to start listening server socket");
-	}
-	check = start_epoll(servers);
-	if (check < 0){
+	int check1 = 0;
+	check1 = start_epoll(servers);
+	if (check1 < 0){
 		close (_serverfd);
 		 throw std::runtime_error("Error! epoll_ctl failed");
 	}
