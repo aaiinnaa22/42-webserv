@@ -330,6 +330,11 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 			close (_serverfd[i]);
 			throw std::runtime_error("Error! Failed to create setsockopt");
 		}
+		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEPORT, (char *)&_on, sizeof(_on));
+		if (check < 0){
+			close (_serverfd[i]);
+			throw std::runtime_error("Error! Failed to create share port");
+		}
 		struct sockaddr_in serverAddress; // memset struct to 0 ??
 		memset(&serverAddress, 0, sizeof(sockaddr_in));
 		serverAddress.sin_family = AF_INET;  // ipV4
