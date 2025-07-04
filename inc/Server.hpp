@@ -29,8 +29,8 @@ class Server {
         ~Server();
 
         int set_non_blocking(int fd);
-        void handle_epoll_event(struct epoll_event *events, ServerConfig config);
-        int start_epoll(ServerConfig config);
+        void handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers);
+        int start_epoll(std::vector<ServerConfig> servers);
         void startServer(std::vector<ServerConfig> servers);
         int32_t get_networkaddress(std::string host);
 };

@@ -55,7 +55,7 @@ int Server::set_non_blocking(int fd)
        to read(2). The recv() call is normally used only on a connected socket
 
 */
-void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
+void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers)
 {
 	int fd;
 	struct epoll_event ev;
@@ -111,7 +111,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
 				try 
 				{
 					//std::cout << "INCOMING REQUEST BUFFER IS: " << std::string(buffer) << std::endl;
-					if (conn.parseData(buffer, bytes_read, config))
+					if (conn.parseData(buffer, bytes_read, servers[0])) // THE SERVER NEEDS TO BE CORRECT NUMBER HERE !!!!
 					{
 						if (!conn.getIsAlive())
 						{
@@ -221,7 +221,7 @@ void Server::handle_epoll_event(struct epoll_event *events, ServerConfig config)
               about edge-triggered and level-triggered notification.
 	( Not sure we need this EPOLLOT, but it stopped the epoll_wait to constantly calling handle_epoll_events)
 	*/
-int Server::start_epoll(ServerConfig config)
+int Server::start_epoll(std::vector<ServerConfig> servers)
 {
 	struct epoll_event events[200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
@@ -238,7 +238,7 @@ int Server::start_epoll(ServerConfig config)
 	{
 		_read_count = epoll_wait(_epollfd, events, 1000, -1); // returns number of events that are ready to be handled
 		if (_read_count != 0)
-			handle_epoll_event(events, config);
+			handle_epoll_event(events, servers);
 	}
 	for (size_t k = 0; k < connections.size(); k++)
 	{
@@ -326,7 +326,7 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 	struct sockaddr_in serverAddress; // memset struct to 0 ??
 	memset(&serverAddress, 0, sizeof(sockaddr_in));
 	serverAddress.sin_family = AF_INET;  // ipV4
-	serverAddress.sin_port = htons(servers[0].listen_port); // random working port in Hive
+	serverAddress.sin_port = htons(servers[0].listen_port); 
 	uint32_t ip_address = get_networkaddress(servers[0].host);
 	serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
 	std::cout << "Server ip: " << servers[0].host << " Port: " << servers[0].listen_port <<  std::endl;
@@ -341,7 +341,7 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 		close (_serverfd);
 		throw std::runtime_error("Error! Failed to start listening server socket");
 	}
-	check = start_epoll(servers[0]);
+	check = start_epoll(servers);
 	if (check < 0){
 		close (_serverfd);
 		 throw std::runtime_error("Error! epoll_ctl failed");
