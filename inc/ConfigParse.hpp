@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <map>
+#include <set>
 
 struct LocationConfig
 {
