@@ -9,7 +9,7 @@ void	normalize_case(std::string &key)
 
 bool is_valid_http_version_syntax(const std::string &version)
 {
-	if (version.size() < 8 | version.size() > 10)
+	if (version.size() < 8 || version.size() > 10)
 		return false;
 	if (version.substr(0,5) != "HTTP/")
 		return false;
@@ -47,10 +47,35 @@ void ClientConnection::resetState()
 	buffer.clear();
 	expected_body_len = 0;
 	request = HttpRequest(fd);
+	selected_server = nullptr;
 }
 
-//TO DO: normalization of characters for key-value pairs (nginx is not case sensitive)
-bool ClientConnection::parseData(const char *data, size_t len, std::vector<ServerConfig> servers)
+const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers, const std::string& hostHeader) 
+{
+	std::string reqHost = hostHeader;
+	size_t colon_pos = reqHost.find(':');
+	if (colon_pos != std::string::npos)
+		reqHost = reqHost.substr(0, colon_pos);
+	normalize_case(reqHost);
+	const ServerConfig* selectedServer = &servers[0];  // default
+
+	for (const ServerConfig& server : servers)
+	{
+		for (const std::string& name : server.server_names)
+		{
+			std::string serverName = name;
+			normalize_case(serverName);
+			if (serverName == reqHost)
+			{
+				selectedServer = &server;
+				break;
+			}
+		}
+	}
+	return selectedServer;
+}
+
+bool ClientConnection::parseData(const char *data, size_t len)
 {
 	buffer.append(data, len);
 
@@ -146,7 +171,10 @@ bool ClientConnection::parseData(const char *data, size_t len, std::vector<Serve
 			std::string connectionType = request.getHeader("connection");
 			if (connectionType == "close")
 				isKeepAlive = false;
-			request.doRequest(servers[0]);
+			std::string chosenHost = request.getHeader("host");
+			std::cout << "Bound servers count: " << bound_servers.size() << ", Host header: " << chosenHost << std::endl;
+			selected_server = selectServerByHost(bound_servers, chosenHost);
+			request.doRequest(*selected_server);
 			return true;
 		}
 	}

@@ -18,11 +18,19 @@ class ClientConnection
 		HttpRequest request;
 		size_t expected_body_len;
 		bool isKeepAlive;
+		std::vector<ServerConfig> bound_servers; 
+		const ServerConfig* selected_server;
 	public:
-		ClientConnection() : fd(-1), state(REQUEST_LINE), expected_body_len(0), request(-1), isKeepAlive(true) {}
-		ClientConnection(int fd) : fd(fd), state(REQUEST_LINE), expected_body_len(0), request(fd), isKeepAlive(true) {}
+		ClientConnection() : fd(-1), state(REQUEST_LINE), 
+			expected_body_len(0), request(-1), 
+			isKeepAlive(true), bound_servers(), selected_server(nullptr) {}
+		ClientConnection(int fd, const std::vector<ServerConfig>& servers) : fd(fd), state(REQUEST_LINE), 
+			expected_body_len(0), request(fd), 
+			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr)  {}
+		
 		int getFd() const { return fd; }
-		bool parseData(const char *data, size_t len, std::vector<ServerConfig> servers);
+		bool parseData(const char* data, size_t len);
 		bool getIsAlive() const { return isKeepAlive; }
 		void resetState();
+		
 };

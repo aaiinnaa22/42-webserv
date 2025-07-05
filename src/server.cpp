@@ -64,9 +64,11 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
     ev.events = EPOLLIN; // | EPOLLET;
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
+	std::vector<ServerConfig> matching_servers;
 	//std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{	
+		matching_servers.clear(); //clearing for the next loop iteration
 		fd = events[i].data.fd;
 		for(int f = 0; f < servers.size(); f++)
 		{
@@ -86,8 +88,15 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
 				}
-				//connections[clientfd] = ClientConnection();
-				connections.try_emplace(clientfd, clientfd);
+				
+				for (size_t j = 0; j < servers.size(); ++j)
+				{
+					if (servers[j].getHost() == servers[f].getHost() && servers[j].getPort() == servers[f].getPort())
+						matching_servers.push_back(servers[j]);
+				}
+				for (auto configs : matching_servers)
+					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
+				connections.try_emplace(clientfd, clientfd, matching_servers);
 				// Just here to print information;
 				uint16_t src_port = ntohs(addr.sin_port);
 				in_addr_t saddr = addr.sin_addr.s_addr;
@@ -99,6 +108,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		if ((events[i].events & EPOLLIN))
 		{
+			std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
@@ -106,17 +116,15 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				continue ;
 			}
 			
-			//std::cout << "Message from startServer: \n" << buffer << std::endl;
 			auto it = connections.find(fd);
-			if (it == connections.end())//a logic for resetting connetion is necessary ("keep-alive handling")
+			if (it == connections.end())
     			std::cerr << "No parser for fd " << fd << "\n";
 			else
 			{
     			auto &conn = it->second;
 				try 
 				{
-					//std::cout << "INCOMING REQUEST BUFFER IS: " << std::string(buffer) << std::endl;
-					if (conn.parseData(buffer, bytes_read, servers)) // THE SERVER NEEDS TO BE CORRECT NUMBER HERE !!!!
+					if (conn.parseData(buffer, bytes_read))
 					{
 						if (!conn.getIsAlive())
 						{
@@ -171,6 +179,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		// }
 	}
 }
+
 /*...Create a new epoll instance
 	int epoll_create(int size);
 	Since Linux 2.6.8, the size argument is ignored, but must be greater than zero; 
