@@ -32,6 +32,15 @@ struct ServerConfig
 	std::vector<std::string> server_names;
 	std::map<int, std::string> error_pages;
 	std::vector<LocationConfig> locations;
+	int getPort() const {return listen_port;}
+	const std::string& getHost() const { return host; }
+	bool matches(const std::string& header_host) const {
+		for (size_t i = 0; i < server_names.size(); ++i) {
+			if (server_names[i] == header_host)
+				return true;
+		}
+		return false;
+	}
 };
 
 class ConfigParse
@@ -43,3 +52,4 @@ class ConfigParse
 		ServerConfig	parseServerBlock(std::ifstream &file);
 		const std::vector<ServerConfig> &getServers() const;
 };
+
