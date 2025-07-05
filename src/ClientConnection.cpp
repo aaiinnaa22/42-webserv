@@ -1,5 +1,6 @@
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ConfigParse.hpp"
+#include <ctime>
 //#include "../inc/HttpRequest.hpp"
 
 void	normalize_case(std::string &key)
@@ -180,3 +181,18 @@ bool ClientConnection::parseData(const char *data, size_t len)
 	}
 }
 
+void ClientConnection::setLastActivity(void)
+{
+	// time_t timestamp;
+	// struct tm datetime = {0};
+  	// _lastactivity = mktime(&datetime);
+	std::time_t result = std::time(nullptr);
+    std::asctime(std::localtime(&result));
+	this->_lastactivity = result;
+	std::cout << "set last activity for " << this->fd << " " << this->_lastactivity << std::endl;
+}
+
+int ClientConnection::getLastActivity(void)
+{
+	return (_lastactivity);
+}

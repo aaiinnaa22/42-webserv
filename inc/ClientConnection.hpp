@@ -2,6 +2,7 @@
 #include <string>
 #include "HttpRequest.hpp"
 #include "ConfigParse.hpp"
+#include <ctime>
 
 class ClientConnection
 {
@@ -20,6 +21,7 @@ class ClientConnection
 		bool isKeepAlive;
 		std::vector<ServerConfig> bound_servers; 
 		const ServerConfig* selected_server;
+		int _lastactivity;
 	public:
 		ClientConnection() : fd(-1), state(REQUEST_LINE), 
 			expected_body_len(0), request(-1), 
@@ -32,5 +34,7 @@ class ClientConnection
 		bool parseData(const char* data, size_t len);
 		bool getIsAlive() const { return isKeepAlive; }
 		void resetState();
+		void setLastActivity();
+		int getLastActivity();
 		
 };
