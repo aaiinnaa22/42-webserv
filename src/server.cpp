@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <cstring>
 #include <errno.h>
+#include <ctime>
 
  Server::Server() : _on(1), _epollfd(0), _read_count(0){
 	_serverfd[5] = {0};
@@ -239,6 +240,12 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			close(_epollfd);
 			return -1;}
 	}
+
+	time_t timestamp;
+	struct tm datetime = {0};
+  	double seconds;
+	std::cout << seconds << std::endl;
+
 	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
 	{
 		_read_count = epoll_wait(_epollfd, events, 1000, -1); // returns number of events that are ready to be handled
