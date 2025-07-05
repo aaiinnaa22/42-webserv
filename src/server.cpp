@@ -97,7 +97,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				for (auto configs : matching_servers)
 					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
 				connections.try_emplace(clientfd, clientfd, matching_servers);
-				connections[5].setLastActivity();
+				connections[clientfd].setLastActivity();
 				// Just here to print information;
 				uint16_t src_port = ntohs(addr.sin_port);
 				in_addr_t saddr = addr.sin_addr.s_addr;
