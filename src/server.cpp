@@ -121,37 +121,37 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			else
 			{
     			auto &conn = it->second;
-				try 
+				int result = conn.parseData(buffer, bytes_read);
+				if (result == 2)
 				{
-					if (conn.parseData(buffer, bytes_read))
-					{
-						if (!conn.getIsAlive())
-						{
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
-							close(fd);
-							connections.erase(fd);
-						}
-						else
-							conn.resetState();
-					}
-				}
-				catch(std::exception& e)
-				{
-					//temporary
-					std::string response;
-					response = "HTTP/1.1\r\n\r\n<h1>ERROR ";
-					response += e.what();
-					response += "</h1>";
-					send(fd, response.c_str(), response.size(), 0);
-					std::cout << response << "-->response test" << std::endl;
+					std::string errorResponse = conn.getResponse().toString();
+					std::cout << errorResponse << "before send test"<< std::endl;
+					send(fd, errorResponse.c_str(), errorResponse.size(), 0);
+					std::cout << errorResponse << " --> response sent\n";
+		
 					if (!conn.getIsAlive())
 					{
-						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 						close(fd);
 						connections.erase(fd);
 					}
 					else
+					{
 						conn.resetState();
+					}
+				}
+				else if (result == 1)
+				{
+					if (!conn.getIsAlive())
+					{
+						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+						close(fd);
+						connections.erase(fd);
+					}
+					else
+					{
+						conn.resetState();
+					}
 				}
 			}
 			// if buffer is empty after recv it means client closed the connection???

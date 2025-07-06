@@ -1,6 +1,7 @@
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ConfigParse.hpp"
 //#include "../inc/HttpRequest.hpp"
+#include "../inc/Response.hpp"
 
 void	normalize_case(std::string &key)
 {
@@ -75,7 +76,12 @@ const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers,
 	return selectedServer;
 }
 
-bool ClientConnection::parseData(const char *data, size_t len)
+Response& ClientConnection::getResponse()
+{
+    return response;
+}
+
+ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len)
 {
 	buffer.append(data, len);
 
@@ -85,29 +91,49 @@ bool ClientConnection::parseData(const char *data, size_t len)
 		{
 			size_t line_end = buffer.find("\r\n");
 			if (line_end == std::string::npos)
-				return false;
-
+				return INCOMPLETE;
 			std::string request_line = buffer.substr(0, line_end);
 			buffer.erase(0, line_end);
 
 			if (!is_ascii(request_line))
-                throw std::runtime_error("400 Bad Request: non-ASCII in request line");
+			{
+                response = Response::buildErrorResponse(400, "Bad Request: non-ASCII in request line");
+				return ERROR;
+			}
 			std::istringstream stream(request_line);
 			std::string method, path, version;
 			if (!(stream >> method >> path))
-				throw std::runtime_error("400 Bad Request");
+			{
+				response = Response::buildErrorResponse(400, "Bad Request");
+				return ERROR;
+			}
 			if (!(stream >> version))
     			version = "HTTP/1.1";
 			if (method.empty() || path.empty())
-				throw std::runtime_error("400 Bad Request");
+			{
+				response = Response::buildErrorResponse(400, "Bad Request");
+				return ERROR;
+			}
 			if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
-				throw std::runtime_error("400 Bad Request");
+			{
+				response = Response::buildErrorResponse(400, "Bad Request");
+				return ERROR;
+			}
 			if (method != "GET" && method != "POST" && method != "DELETE")
-				throw std::runtime_error("405 Method Not Allowed");
+			{
+				response = Response::buildErrorResponse(405, "Method Not Allowed");
+				return ERROR;
+			}
 			else if (!is_valid_http_version_syntax(version))
-        		throw std::runtime_error("400 Bad Request");
+			{
+        		response = Response::buildErrorResponse(400, "Bad Request");
+				return ERROR;
+			}
 			if (version != "HTTP/1.1")
-				throw std::runtime_error("505 HTTP Version Not Supported");
+			{
+				response = Response::buildErrorResponse(505, "HTTP Version Not Supported");
+				return ERROR;
+			}
 			request.setMethod(method);
 			request.setPath(path);
 			request.setHttpVersion(version);
@@ -117,9 +143,12 @@ bool ClientConnection::parseData(const char *data, size_t len)
 		{
     		size_t headers_end = buffer.find("\r\n\r\n");
 			if (headers_end == std::string::npos)
-                return false;
+                return INCOMPLETE;
 			if (headers_end == 0)
-    			throw std::runtime_error("400 Bad Request: no headers");
+			{
+				response = Response::buildErrorResponse(400, "Bad Request: no headers");
+				return ERROR;
+			}
 			std::string headers_str = buffer.substr(0, headers_end);
 			buffer.erase(0, headers_end + 4);
 			std::istringstream stream(headers_str);
@@ -132,8 +161,10 @@ bool ClientConnection::parseData(const char *data, size_t len)
 					continue; 
 				size_t colon = line.find(':');
 				if (colon == std::string::npos)
-					throw std::runtime_error("400 Bad Request");
-
+				{
+        			response = Response::buildErrorResponse(400, "Bad Request");
+					return ERROR;
+				}
 				std::string key = line.substr(0, colon);
 				normalize_case(key);
 				std::string value = line.substr(colon + 1);
@@ -146,13 +177,19 @@ bool ClientConnection::parseData(const char *data, size_t len)
 				isKeepAlive = false;
 			std::string checkHost = request.getHeader("host");
 			if (checkHost.empty())
-				throw std::runtime_error("400 Bad Request");
+			{
+        		response = Response::buildErrorResponse(400, "Bad Request");
+				return ERROR;
+			}
 			std::string contentLengthVal = request.getHeader("content-length");
 			if (!contentLengthVal.empty())
 			{
 				expected_body_len = std::stoi(contentLengthVal);//stoi check!
 				if (expected_body_len < 0)
-					throw std::runtime_error("400 Bad Request");
+				{
+        			response = Response::buildErrorResponse(400, "Bad Request");
+					return ERROR;
+				}
 				state = BODY;
 			}
 			else
@@ -161,7 +198,7 @@ bool ClientConnection::parseData(const char *data, size_t len)
 		else if (state == BODY)
 		{
 			if (buffer.size() < expected_body_len)
-				return false;
+				return INCOMPLETE;
 			request.setBody(buffer.substr(0, expected_body_len));
 			buffer.erase(0, expected_body_len);
 			state = COMPLETE;
@@ -175,7 +212,7 @@ bool ClientConnection::parseData(const char *data, size_t len)
 			std::cout << "Bound servers count: " << bound_servers.size() << ", Host header: " << chosenHost << std::endl;
 			selected_server = selectServerByHost(bound_servers, chosenHost);
 			request.doRequest(*selected_server);
-			return true;
+			return DONE;
 		}
 	}
 }
