@@ -13,7 +13,19 @@
 	int _clientfd = 0; // unusedd??
  }
 
- Server::~Server(){}
+ Server::~Server(){
+	for (size_t k = 0; k < connections.size(); k++)
+	{
+		std::cout << k << " " << connections[k].getFd() << std::endl;
+		if (connections[k].getFd() != -1)	
+			close(connections[k].getFd());
+	}
+	for (size_t s = 0; _serverfd[s] != 0; s++)
+	{
+		close(_serverfd[s]);
+	}
+	close(_epollfd);
+ }
 
 /*  ...Fcntl
 	int fcntl(int fd, int op, ...) /* arg
@@ -97,8 +109,17 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				for (auto configs : matching_servers)
 					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
 				connections.try_emplace(clientfd, clientfd, matching_servers);
-				connections[clientfd].setLastActivity();
-				// Just here to print information;
+				auto it = connections.find(clientfd);
+				if (it != connections.end()) {
+					it->second.setLastActivity();
+				}
+				// for (int o = 0; o < connections.size(); o++) // might be eplosve mine.
+				// {
+				// 	std::cout << "YOLO" << std::endl;
+				// 	if (connections[o].getFd() == clientfd)
+				// 		connections[o].setLastActivity();
+				// }
+				//Just here to print information;
 				uint16_t src_port = ntohs(addr.sin_port);
 				in_addr_t saddr = addr.sin_addr.s_addr;
 				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
@@ -239,7 +260,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
 	int time_out_timer = 0;
-	struct epoll_event events[200]; // FIgure better number here, Numeber of events epoll_wait can return?
+	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
 		return -1;
@@ -265,33 +286,54 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 		_read_count = epoll_wait(_epollfd, events, 1000, 1000); // returns number of events that are ready to be handled
 		if (_read_count != 0)
 			handle_epoll_event(events, servers);
-		for (size_t k = 0; k < connections.size(); k++)
-		{	
-			if (connections[k].getFd() != -1)
-			{
-				result = std::time(nullptr);
-   				std::asctime(std::localtime(&result));
-				std::cout << "Last activity of connection " << connections[k].getFd() << " ";
-				time_out_timer = result - connections[k].getLastActivity();
-				std::cout <<  time_out_timer << " seconds ago." << std::endl;
-				if (time_out_timer > 60)
-				{
-					std::cout << "Closing connection " << connections[k].getFd() << std::endl;
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, connections[k].getFd(), NULL);
-				 	close(connections[k].getFd());
-					connections.erase(connections[k].getFd());
-				}	
+		for (auto it = connections.begin(); it != connections.end(); ) {
+			int fd = it->first;
+			auto& conn = it->second;
+
+			if (conn.getFd() != -1) {
+				std::time_t now = std::time(nullptr);
+				int time_out_timer = now - conn.getLastActivity();
+
+				std::cout << "Last activity of connection " << conn.getFd() 
+						<< " " << time_out_timer << " seconds ago." << std::endl;
+
+				if (time_out_timer > 60) {
+					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
+					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+					close(fd);
+					it = connections.erase(it); // SAFE erase
+					continue;
+				}
 			}
+			++it;
 		}
+		// for (size_t k = 0; k < connections.size(); k++)
+		// {	
+		// 	if (connections[k].getFd() != -1)
+		// 	{
+		// 		result = std::time(nullptr);
+   		// 		std::asctime(std::localtime(&result));
+		// 		std::cout << "Last activity of connection " << connections[k].getFd() << " ";
+		// 		time_out_timer = result - connections[k].getLastActivity();
+		// 		std::cout <<  time_out_timer << result << " " << connections[k].getLastActivity() << " "<< " seconds ago." << std::endl;
+		// 		if (time_out_timer > 60)
+		// 		{
+		// 			std::cout << "Closing connection TIMEOUT " << connections[k].getFd() << std::endl;
+		// 			epoll_ctl(_epollfd, EPOLL_CTL_DEL, connections[k].getFd(), NULL);
+		// 		 	close(connections[k].getFd());
+		// 			connections.erase(connections[k].getFd());
+		// 		}	
+		// 	}
+		// }
 	}
-	for (size_t k = 0; k < connections.size(); k++)
-	{
-		std::cout << k << " " << connections[k].getFd() << std::endl;
-		if (connections[k].getFd() != -1)	
-			close(connections[k].getFd());
-	}
-	close(_serverfd[0]);
-	close(_epollfd);
+	// for (size_t k = 0; k < connections.size(); k++)
+	// {
+	// 	std::cout << k << " " << connections[k].getFd() << std::endl;
+	// 	if (connections[k].getFd() != -1)	
+	// 		close(connections[k].getFd());
+	// }
+	// close(_serverfd[0]);
+	// close(_epollfd);
 	return 0;
 }
 /* ....Initiliazing Socket. 
