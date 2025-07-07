@@ -24,10 +24,10 @@ class ClientConnection
 		int _lastactivity;
 	public:
 		ClientConnection() : fd(-1), state(REQUEST_LINE), 
-			expected_body_len(0), request(-1), 
+			expected_body_len(0), request(-1), _lastactivity(0), 
 			isKeepAlive(true), bound_servers(), selected_server(nullptr) {}
 		ClientConnection(int fd, const std::vector<ServerConfig>& servers) : fd(fd), state(REQUEST_LINE), 
-			expected_body_len(0), request(fd), 
+			expected_body_len(0), request(fd), _lastactivity(0),
 			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr)  {}
 		
 		int getFd() const { return fd; }

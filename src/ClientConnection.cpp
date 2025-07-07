@@ -1,6 +1,5 @@
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ConfigParse.hpp"
-#include <ctime>
 //#include "../inc/HttpRequest.hpp"
 
 void	normalize_case(std::string &key)

@@ -274,7 +274,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 				std::cout << "Last activity of connection " << connections[k].getFd() << " ";
 				time_out_timer = result - connections[k].getLastActivity();
 				std::cout <<  time_out_timer << " seconds ago." << std::endl;
-				if (time_out_timer > 5)
+				if (time_out_timer > 60)
 				{
 					std::cout << "Closing connection " << connections[k].getFd() << std::endl;
 					epoll_ctl(_epollfd, EPOLL_CTL_DEL, connections[k].getFd(), NULL);
