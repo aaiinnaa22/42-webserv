@@ -1,10 +1,12 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
 #include "../inc/ConfigParse.hpp"
+#include "../inc/ClientConnection.hpp"
 #include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
 #include <stdlib.h>
 #include <cstring>
 #include <errno.h>
+#include <ctime>
 
  Server::Server() : _on(1), _epollfd(0), _read_count(0){
 	_serverfd[5] = {0};
@@ -64,7 +66,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 	std::vector<ServerConfig> matching_servers;
-	//std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << std::endl;
+	std::cout << "Handling event" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{	
 		matching_servers.clear(); //clearing for the next loop iteration
@@ -87,7 +89,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
 				}
-				
 				for (size_t j = 0; j < servers.size(); ++j)
 				{
 					if (servers[j].getHost() == servers[f].getHost() && servers[j].getPort() == servers[f].getPort())
@@ -96,6 +97,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				for (auto configs : matching_servers)
 					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
 				connections.try_emplace(clientfd, clientfd, matching_servers);
+				connections[clientfd].setLastActivity();
 				// Just here to print information;
 				uint16_t src_port = ntohs(addr.sin_port);
 				in_addr_t saddr = addr.sin_addr.s_addr;
@@ -236,6 +238,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	*/
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
+	int time_out_timer = 0;
 	struct epoll_event events[200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
@@ -248,11 +251,38 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			close(_epollfd);
 			return -1;}
 	}
+
+	//Setting up server time stamp
+	time_t timestamp;
+	struct tm datetime = {0};
+  	int seconds = mktime(&datetime);
+	std::cout << seconds << std::endl;
+	std::time_t result = std::time(nullptr);
+    std::cout << std::asctime(std::localtime(&result)) << result << " Server start time stamp\n";
+
 	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
 	{
-		_read_count = epoll_wait(_epollfd, events, 1000, -1); // returns number of events that are ready to be handled
+		_read_count = epoll_wait(_epollfd, events, 1000, 1000); // returns number of events that are ready to be handled
 		if (_read_count != 0)
 			handle_epoll_event(events, servers);
+		for (size_t k = 0; k < connections.size(); k++)
+		{	
+			if (connections[k].getFd() != -1)
+			{
+				result = std::time(nullptr);
+   				std::asctime(std::localtime(&result));
+				std::cout << "Last activity of connection " << connections[k].getFd() << " ";
+				time_out_timer = result - connections[k].getLastActivity();
+				std::cout <<  time_out_timer << " seconds ago." << std::endl;
+				if (time_out_timer > 60)
+				{
+					std::cout << "Closing connection " << connections[k].getFd() << std::endl;
+					epoll_ctl(_epollfd, EPOLL_CTL_DEL, connections[k].getFd(), NULL);
+				 	close(connections[k].getFd());
+					connections.erase(connections[k].getFd());
+				}	
+			}
+		}
 	}
 	for (size_t k = 0; k < connections.size(); k++)
 	{
@@ -305,19 +335,19 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 	   */
 int32_t Server::get_networkaddress(std::string host)
 {
-int i = 0;
-std::string segment;
-std::stringstream host1(host);
-std::vector<int> seglist;
-while(std::getline(host1, segment, '.'))
-{	
-	i = std::stoi(segment);
-	seglist.push_back(i);
-	i = 0;
-}
-uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] << 8) | seglist[3];
-//std::cout << ip_host_order << std::endl;
-return ip_host_order;
+	int i = 0;
+	std::string segment;
+	std::stringstream host1(host);
+	std::vector<int> seglist;
+	while(std::getline(host1, segment, '.'))
+	{	
+		i = std::stoi(segment);
+		seglist.push_back(i);
+		i = 0;
+	}
+	uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] << 8) | seglist[3];
+	//std::cout << ip_host_order << std::endl;
+	return ip_host_order;
 }
 
 void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, std::string host)
