@@ -82,7 +82,7 @@ void HttpRequest::sendResponse(std::string status)
 
 	//std::cout << "SENDING BODY..." << std::endl;
 	sending = send(clientfd, responseBody.c_str(), responseBody.size(), 0);
-	//error check
+	//error check DEFINETLY NEEDED THIS WILL CRASH THE SERVER T.Leo 6.7.2025 :)
 }
 
 void HttpRequest::setContentType(void)

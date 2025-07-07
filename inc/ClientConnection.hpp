@@ -24,11 +24,11 @@ class ClientConnection
 		int _lastactivity;
 	public:
 		ClientConnection() : fd(-1), state(REQUEST_LINE), 
-			expected_body_len(0), request(-1), _lastactivity(0), 
-			isKeepAlive(true), bound_servers(), selected_server(nullptr) {}
+			expected_body_len(0), request(-1), 
+			isKeepAlive(true), bound_servers(), selected_server(nullptr), _lastactivity(0) {}
 		ClientConnection(int fd, const std::vector<ServerConfig>& servers) : fd(fd), state(REQUEST_LINE), 
-			expected_body_len(0), request(fd), _lastactivity(0),
-			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr)  {}
+			expected_body_len(0), request(fd),
+			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr), _lastactivity(0)  {}
 		
 		int getFd() const { return fd; }
 		bool parseData(const char* data, size_t len);
