@@ -239,7 +239,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
 	int time_out_timer = 0;
-	struct epoll_event events[200]; // FIgure better number here, Numeber of events epoll_wait can return?
+	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
 		return -1;
