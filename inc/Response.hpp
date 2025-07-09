@@ -3,6 +3,7 @@
 #include <map>
 #include <unordered_map>
 #include <iostream>
+#include <sys/socket.h>
 
 class Response
 {
@@ -16,16 +17,17 @@ class Response
 
 	public:
 		void setStatus(int code, const std::string& message = "");
-		void setHeader(const std::string &key, const std::string &value);
-		void setBody(std::string &bodyContent);
+		void setResponseHeader(const std::string &key, const std::string &value);
+		void setResponseBody(std::string &bodyContent);
 
 		int getStatusCode() const;
 		std::string getStatusMessage() const;
-		std::string getHeader(std::string &key) const;
+		const std::string getHeader(const std::string &key) const;
 		std::string getBody() const;
 		std::string toString() const;
 
-		static Response buildErrorResponse(int statusCode, const std::string& message = "");
+		static Response buildResponse(int statusCode, bool sendNow, int clientFd);
+		void sendResponse(int clientFd); //public?
 
 		Response() = default;
 		Response(int code);

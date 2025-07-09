@@ -49,6 +49,7 @@ void ClientConnection::resetState()
 	expected_body_len = 0;
 	request = HttpRequest(fd);
 	selected_server = nullptr;
+	setLastActivity();
 }
 
 const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers, const std::string& hostHeader) 
@@ -84,9 +85,10 @@ Response& ClientConnection::getResponse()
 ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len)
 {
 	buffer.append(data, len);
-	auto respondWithError = [&](int code, const std::string& msg) -> parseResult
+	auto respondWithError = [&](int code) -> parseResult
 	{
-		response = Response::buildErrorResponse(code, msg);
+		response = Response::buildResponse(code, 1, fd);
+		//can  this send already????
 		return ERROR;
 	};
 
@@ -101,23 +103,23 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			buffer.erase(0, line_end);
 
 			if (!is_ascii(request_line))
-				return respondWithError(400, "Bad Request: non-ASCII in request line");
+				return respondWithError(400);
 			std::istringstream stream(request_line);
 			std::string method, path, version;
 			if (!(stream >> method >> path))
-				return respondWithError(400, "Bad Request");
+				return respondWithError(400);
 			if (!(stream >> version))
     			version = "HTTP/1.1";
 			if (method.empty() || path.empty())
-				return respondWithError(400, "Bad Request");
+				return respondWithError(400);
 			if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
-				return respondWithError(400, "Bad Request");
+				return respondWithError(400);
 			if (method != "GET" && method != "POST" && method != "DELETE")
-				return respondWithError(405, "Method Not Allowed");
+				return respondWithError(405);
 			else if (!is_valid_http_version_syntax(version))
-				return respondWithError(400, "Bad Request");
+				return respondWithError(400);
 			if (version != "HTTP/1.1")
-				return (respondWithError(505, "HTTP Version Not Supported"));
+				return (respondWithError(505));
 			request.setMethod(method);
 			request.setPath(path);
 			request.setHttpVersion(version);
@@ -129,7 +131,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			if (headers_end == std::string::npos)
                 return INCOMPLETE;
 			if (headers_end == 0)
-				return respondWithError(400, "Bad Request: no headers");
+				return respondWithError(400);
 			std::string headers_str = buffer.substr(0, headers_end);
 			buffer.erase(0, headers_end + 4);
 			std::istringstream stream(headers_str);
@@ -142,7 +144,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					continue; 
 				size_t colon = line.find(':');
 				if (colon == std::string::npos)
-					return respondWithError(400, "Bad Request");
+					return respondWithError(400);
 				std::string key = line.substr(0, colon);
 				normalize_case(key);
 				std::string value = line.substr(colon + 1);
@@ -155,13 +157,13 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				isKeepAlive = false;
 			std::string checkHost = request.getHeader("host");
 			if (checkHost.empty())
-				return respondWithError(400, "Bad Request");
+				return respondWithError(400);
 			std::string contentLengthVal = request.getHeader("content-length");
 			if (!contentLengthVal.empty())
 			{
 				expected_body_len = std::stoi(contentLengthVal);//stoi check!
 				if (expected_body_len < 0)
-					return respondWithError(400, "Bad Request");
+					return respondWithError(400);
 				state = BODY;
 			}
 			else

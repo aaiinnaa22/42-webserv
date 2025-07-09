@@ -8,6 +8,7 @@
 #include <dirent.h> //opendir, closedir....
 #include <cstring> //strcmp
 #include <sys/stat.h> //stat()
+#include "Response.hpp"
 
 class HttpRequest
 {
@@ -20,16 +21,16 @@ class HttpRequest
 		std::string httpVersion;
 		std::map<std::string, std::string> headers;
 		std::string	body;
-		std::string responseBody;
-		std::string responseContentType;
+		//std::string responseBody;
+		//std::string responseContentType;
 		int clientfd;
 		LocationConfig currentLocation;
 		std::string completePath;
+		Response httpResponse;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
 		void doCgi();
-		void sendResponse(std::string status);
 		void setContentType(void);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);

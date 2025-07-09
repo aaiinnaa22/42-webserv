@@ -144,38 +144,48 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			else
 			{
     			auto &conn = it->second;
-				int result = conn.parseData(buffer, bytes_read);
-				if (result == 2)
+
+				try 
 				{
-					std::string errorResponse = conn.getResponse().toString();
-					std::cout << errorResponse << "before send test"<< std::endl;
-					send(fd, errorResponse.c_str(), errorResponse.size(), 0);
-					std::cout << errorResponse << " --> response sent\n";
-		
-					if (!conn.getIsAlive())
+					int result = conn.parseData(buffer, bytes_read);
+					if (result == 2)
 					{
-						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-						close(fd);
-						connections.erase(fd);
+						// std::string errorResponse = conn.getResponse().toString();
+						// std::cout << errorResponse << "before send test"<< std::endl;
+						//send(fd, errorResponse.c_str(), errorResponse.size(), 0);
+						// std::cout << errorResponse << " --> response sent\n";
+			
+						if (!conn.getIsAlive())
+						{
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+							close(fd);
+							connections.erase(fd);
+						}
+						else
+						{
+							conn.resetState();
+						}
 					}
-					else
+					else if (result == 1)
 					{
-						conn.resetState();
+						if (!conn.getIsAlive())
+						{
+							std::cout << "coming back from parsing after a close???" << std::endl;
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+							if (fd > 0)
+								close(fd);
+							connections.erase(fd);
+						}
+						else
+						{
+							conn.resetState();
+						}
 					}
-				}
-				else if (result == 1)
-				{
-					if (!conn.getIsAlive())
-					{
-						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-						close(fd);
-						connections.erase(fd);
-					}
-					else
-					{
-						conn.resetState();
-					}
-				}
+			}
+			catch (std::runtime_error& e) //make into our own exception
+			{
+				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
+			}
 			}
 			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {
