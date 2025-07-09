@@ -145,39 +145,48 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			else
 			{
     			auto &conn = it->second;
+
 				try 
 				{
-					if (conn.parseData(buffer, bytes_read))
+					int result = conn.parseData(buffer, bytes_read);
+					if (result == 2)
 					{
+						// std::string errorResponse = conn.getResponse().toString();
+						// std::cout << errorResponse << "before send test"<< std::endl;
+						//send(fd, errorResponse.c_str(), errorResponse.size(), 0);
+						// std::cout << errorResponse << " --> response sent\n";
+			
 						if (!conn.getIsAlive())
 						{
-							std::cout << "is this the last thing we see?" << std::endl;
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 							close(fd);
 							connections.erase(fd);
 						}
 						else
+						{
 							conn.resetState();
+						}
 					}
-				}
-				catch(std::exception& e)
-				{
-					//temporary
-					std::string response;
-					response = "HTTP/1.1\r\n\r\n<h1>ERROR ";
-					response += e.what();
-					response += "</h1>";
-					send(fd, response.c_str(), response.size(), 0);
-					std::cout << response << "-->response test" << std::endl;
-					if (!conn.getIsAlive())
+					else if (result == 1)
 					{
-						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
-						close(fd);
-						connections.erase(fd);
+						if (!conn.getIsAlive())
+						{
+							std::cout << "coming back from parsing after a close???" << std::endl;
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+							if (fd > 0)
+								close(fd);
+							connections.erase(fd);
+						}
+						else
+						{
+							conn.resetState();
+						}
 					}
-					else
-						conn.resetState();
-				}
+			}
+			catch (std::runtime_error& e) //make into our own exception
+			{
+				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
+			}
 			}
 			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {
