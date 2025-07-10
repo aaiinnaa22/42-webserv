@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Response.cpp                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: hskrzypi <hskrzypi@student.hive.fi>        +#+  +:+       +#+        */
+/*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/06 13:53:35 by hskrzypi         ###   ########.fr       */
+/*   Updated: 2025/07/10 14:28:34 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -95,22 +95,44 @@ std::string Response::toString() const
     return response;
 }
 
-Response Response::buildResponse(int statusCode, bool sendNow, int clientFd)
+Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd, std::map<int, std::string> errorPages)
 {
 	std::cout << "build error response call\n";
 	Response res;
 	res.setStatus(statusCode);
-	res.setResponseHeader("content-type", "text/plain");
-
+	res.setResponseHeader("content-type", "text/html");
+	
+	//body
+	std::string errorFile;
+	if (!errorPages.empty() && errorPages.find(statusCode) != errorPages.end())
+		errorFile = errorPages[statusCode]; //WONT WORK IF NOT FROM DOREQUEST FUNCS!
+	else
+	{
+		std::cout << "no errorFile from config" << std::endl;
+		errorFile = "./www/error/" + std::to_string(statusCode) + ".html";
+	}
+	ssize_t chars_read;
+	char buffer[1000];
+	std::string responseBody;
+	//epoll?
+	int fd = open(errorFile.c_str(), O_RDONLY);
+	if (fd == -1)
+	{
+		;//???
+	}
+	while ((chars_read = read(fd, buffer, sizeof(buffer))) > 0)
+		responseBody.append(buffer, chars_read);
+	close(fd);
+	if (chars_read == -1)
+	{
+		;//??
+	}
+	res.setResponseBody(responseBody);
 	std::cout << "what i built in built error response\n";
 	std::cout << res.httpVersion << res.statusCode << std::endl;
 	//can this send already???
 	if (sendNow)
-	{
-		ssize_t sending;
-
 		res.sendResponse(clientFd);
-	}
 	return res;
 }
 
@@ -123,6 +145,7 @@ void Response::sendResponse(int clientFd)
 	contentLength = std::to_string(body.size());
 
 	std::cout << "i am in sendResponse?" << std::endl;
+	//.at for reasonPhrases can fail?!!?!?
 	responseHeaders =
 	httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n" +
 	"Content-Type: " + getHeader("content-type") + "\r\n" +
@@ -139,7 +162,7 @@ void Response::sendResponse(int clientFd)
 		throw std::runtime_error("");
 	}
 	//error check
-	//IF RESPONSE IS ERROR, PUT RESPONSEBODY TO ERROR HTML CONTENT IN buildResponse
+	//IF RESPONSE IS ERROR, PUT RESPONSEBODY TO ERROR HTML CONTENT IN buildErrorResponse
 	responseBody = body;
 	//std::cout << "SENDING BODY..." << std::endl;
 	if (responseBody.empty())

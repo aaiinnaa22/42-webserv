@@ -23,6 +23,7 @@ class HttpRequest
 		std::string	body;
 		//std::string responseBody;
 		//std::string responseContentType;
+		std::map<int, std::string> errorPages;
 		int clientfd;
 		LocationConfig currentLocation;
 		std::string completePath;
@@ -36,7 +37,8 @@ class HttpRequest
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
 		void checkPathIsSafe(void);
-		void makeRootAbsolute(void);
+		void makeRootAbsolute(std::string& myRoot);
+		void setErrorPages(std::map<int, std::string> pages, std::string root);
 
 	public:
 		void		parse(const std::string& request);

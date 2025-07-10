@@ -222,7 +222,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
            	break;
         }
 	}
-	//std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
+	// std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
 	// for (const auto &entry : s1.error_pages)
 	// {
 	// 	std::cout << entry.first << " => " << entry.second << " --> error page\n";

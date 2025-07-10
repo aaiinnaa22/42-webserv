@@ -71,7 +71,7 @@ void HttpRequest::setContentType(void)
 	dot = completePath.rfind(".");
 	if (dot == std::string::npos)
 	{
-		httpResponse.buildResponse(415, 1, clientfd);
+		httpResponse.buildErrorResponse(415, 1, clientfd, errorPages);
 		throw std::invalid_argument("setContentType");
 	}
 	fileExtension = completePath.substr(dot + 1, completePath.length()); //try catch in main
@@ -87,7 +87,7 @@ void HttpRequest::setContentType(void)
 		responseContentType = "image/x-icon";
 	else
 	{
-		httpResponse.buildResponse(415, 1, clientfd); //unsupported media type
+		httpResponse.buildErrorResponse(415, 1, clientfd, errorPages); //unsupported media type
 		throw std::invalid_argument("setContentType");
 	}
 	httpResponse.setResponseHeader("content-type", responseContentType);
@@ -104,7 +104,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	dir = opendir(completePath.c_str());
 	if (dir == nullptr) //500?
 	{
-		httpResponse.buildResponse(500, 1, clientfd);
+		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
 		throw std::invalid_argument("ResponseBodyIsDirectoryListing");
 	}
 	
@@ -143,7 +143,7 @@ int HttpRequest::checkPathIsDirectory(void)
 	struct stat path_stat;
 	if (stat(completePath.c_str(), &path_stat) != 0)
 	{
-		httpResponse.buildResponse(404, 1, clientfd);
+		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
 		throw std::invalid_argument("checkPathIsDirectory");
 	}
 	return (S_ISDIR(path_stat.st_mode));
@@ -178,7 +178,7 @@ void HttpRequest::methodGet(void)
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 	{
-		httpResponse.buildResponse(404, 1, clientfd);
+		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
 		throw std::invalid_argument("methodGet");
 	}
 	//std::cout << "FILE FOUND!" << std::endl;
@@ -187,7 +187,7 @@ void HttpRequest::methodGet(void)
 	close(fd);
 	if (charsRead == -1) //500?
 	{
-		httpResponse.buildResponse(500, 1, clientfd);
+		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
 		throw std::invalid_argument("methodGet");
 	}
 	setContentType();
@@ -205,18 +205,18 @@ void HttpRequest::methodPost(void)
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1) //500?
 	{
-		httpResponse.buildResponse(500, 1, clientfd);
+		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
 		throw std::invalid_argument("methodPost");
 	}
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1) //500?
 	{
-		httpResponse.buildResponse(500, 1, clientfd);
+		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
 		throw std::invalid_argument("methodPost");
 	}
 	setContentType();
-	httpResponse.buildResponse(200, 1, clientfd);
+	httpResponse.buildErrorResponse(200, 1, clientfd, errorPages);
 }
 
 void HttpRequest::methodDelete(void)
@@ -227,16 +227,16 @@ void HttpRequest::methodDelete(void)
 	{
 		removed = std::filesystem::remove(completePath);
 		if (removed)
-			httpResponse.buildResponse(200, 1, clientfd);
+			httpResponse.buildErrorResponse(200, 1, clientfd, errorPages);
 		else
 		{
-			httpResponse.buildResponse(404, 1, clientfd);
+			httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
 			throw std::invalid_argument("methodDelete");
 		}
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		httpResponse.buildResponse(403, 1, clientfd);
+		httpResponse.buildErrorResponse(403, 1, clientfd, errorPages);
 		throw std::invalid_argument("methodDelete");
 	}
 }
@@ -266,7 +266,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 	}
 	if (!match_found)
 	{
-		httpResponse.buildResponse(404, 1, clientfd);
+		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
 		throw std::invalid_argument("from findCurrentLocation");
 	}
 }
@@ -309,29 +309,38 @@ void HttpRequest::checkPathIsSafe(void)
 	{
 		std::cout << "normalized path is forbidden..." << std::endl;
 		//403 forbidden
-		httpResponse.buildResponse(403, 1, clientfd);
+		httpResponse.buildErrorResponse(403, 1, clientfd, errorPages);
 		throw std::invalid_argument("from check path is safe");
 	}
 }
 
-void HttpRequest::makeRootAbsolute(void)
+void HttpRequest::makeRootAbsolute(std::string& myRoot)
 {
-	std::filesystem::path root(currentLocation.root);
+	std::filesystem::path root(myRoot);
 	try
 	{
 		if (root.is_relative())
 			root = std::filesystem::current_path() / root;
-		currentLocation.root = std::filesystem::canonical(root);
+		myRoot = std::filesystem::canonical(root);
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
 		std::cout << "make absolute error? should be 404/ 403?" << std::endl;
 	}
 }
-
+void HttpRequest::setErrorPages(std::map<int, std::string> pages, std::string root)
+{
+	if (pages.empty())
+		return ;
+	for (auto& [status, path] : pages)
+		path = root + path;
+	errorPages = pages;
+}
 
 void HttpRequest::doRequest(ServerConfig config)
 {
+	makeRootAbsolute(config.root);
+	setErrorPages(config.error_pages, config.root);
 	try 
 	{
 		//make sure all response stuff, like response body, is cleared out/empty for every request
@@ -343,7 +352,7 @@ void HttpRequest::doRequest(ServerConfig config)
 			return ;
 		}
 		findCurrentLocation(config);
-		makeRootAbsolute(); //test
+		makeRootAbsolute(currentLocation.root); //test
 		completePath = currentLocation.root + path;
 		path.clear();
 		//std::cout << "path from do request: " << completePath << std::endl;
@@ -362,7 +371,7 @@ void HttpRequest::doRequest(ServerConfig config)
 			methodDelete();
 		else
 		{
-			Response::buildResponse(405, 1, clientfd);
+			Response::buildErrorResponse(405, 1, clientfd, errorPages);
 			//method not allowed
 		}
 	}
