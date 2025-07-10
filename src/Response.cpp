@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/10 14:28:34 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/10 15:49:29 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,6 +14,7 @@
 
 const std::unordered_map<int, std::string> Response::reasonPhrases = {
 	{200, "OK"},
+	{204, "No Content"},
     {400, "Bad Request"},
     {403, "Forbidden"},
     {404, "Not Found"},
@@ -107,10 +108,7 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	if (!errorPages.empty() && errorPages.find(statusCode) != errorPages.end())
 		errorFile = errorPages[statusCode]; //WONT WORK IF NOT FROM DOREQUEST FUNCS!
 	else
-	{
-		std::cout << "no errorFile from config" << std::endl;
 		errorFile = "./www/error/" + std::to_string(statusCode) + ".html";
-	}
 	ssize_t chars_read;
 	char buffer[1000];
 	std::string responseBody;
@@ -144,17 +142,15 @@ void Response::sendResponse(int clientFd)
 	std::string responseBody;
 	contentLength = std::to_string(body.size());
 
-	std::cout << "i am in sendResponse?" << std::endl;
 	//.at for reasonPhrases can fail?!!?!?
-	responseHeaders =
-	httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n" +
-	"Content-Type: " + getHeader("content-type") + "\r\n" +
-	"Content-Length: " + contentLength + "\r\n" +
-	"\r\n";
+	responseHeaders = httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n";
+	if (statusCode != 204)
+	{
+		responseHeaders += "Content-Type: " + getHeader("content-type") + "\r\n" +
+						"Content-Length: " + contentLength + "\r\n";
+	}
+	responseHeaders += "\r\n";
 
-	std::cout << "THESE ARE MY RESPONSE HEADERS: " << responseHeaders << std::endl;
-	std::cout << "hello? from sendResponse" << std::endl;
-	//std::cout << "SENDING HEADERS: " << responseHeaders << std::endl;
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);
 	if (sending == -1)
 	{
@@ -162,13 +158,7 @@ void Response::sendResponse(int clientFd)
 		throw std::runtime_error("");
 	}
 	//error check
-	//IF RESPONSE IS ERROR, PUT RESPONSEBODY TO ERROR HTML CONTENT IN buildErrorResponse
 	responseBody = body;
-	//std::cout << "SENDING BODY..." << std::endl;
-	if (responseBody.empty())
-		std::cout << "MY RESPONSE BODY IS EMPTY" << std::endl;
-	else 
-		std::cout << "THIS IS MY RESPONSE BODY: " << responseBody << std::endl;
 	sending = send(clientFd, responseBody.c_str(), responseBody.size(), MSG_NOSIGNAL);
 	if (sending == -1)
 	{

@@ -70,10 +70,7 @@ void HttpRequest::setContentType(void)
 
 	dot = completePath.rfind(".");
 	if (dot == std::string::npos)
-	{
-		httpResponse.buildErrorResponse(415, 1, clientfd, errorPages);
-		throw std::invalid_argument("setContentType");
-	}
+		throw ErrorResponseException(415);
 	fileExtension = completePath.substr(dot + 1, completePath.length()); //try catch in main
 	if (fileExtension == "html" || fileExtension == "css")
 		responseContentType = "text/" + fileExtension;
@@ -86,10 +83,7 @@ void HttpRequest::setContentType(void)
 	else if (fileExtension == "ico")
 		responseContentType = "image/x-icon";
 	else
-	{
-		httpResponse.buildErrorResponse(415, 1, clientfd, errorPages); //unsupported media type
-		throw std::invalid_argument("setContentType");
-	}
+		throw ErrorResponseException(415);
 	httpResponse.setResponseHeader("content-type", responseContentType);
 	//std::cout << "content type is " << responseContentType << std::endl;
 }
@@ -103,10 +97,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 
 	dir = opendir(completePath.c_str());
 	if (dir == nullptr) //500?
-	{
-		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
-		throw std::invalid_argument("ResponseBodyIsDirectoryListing");
-	}
+		throw ErrorResponseException(500);
 	
 	html_content = 
 	"<html>\n"
@@ -142,10 +133,7 @@ int HttpRequest::checkPathIsDirectory(void)
 {
 	struct stat path_stat;
 	if (stat(completePath.c_str(), &path_stat) != 0)
-	{
-		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
-		throw std::invalid_argument("checkPathIsDirectory");
-	}
+		throw ErrorResponseException(404);
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -177,19 +165,13 @@ void HttpRequest::methodGet(void)
 	//std::cout << "FINDING FILE..." << std::endl;
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
-	{
-		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
-		throw std::invalid_argument("methodGet");
-	}
+		throw ErrorResponseException(404);
 	//std::cout << "FILE FOUND!" << std::endl;
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, charsRead);
 	close(fd);
 	if (charsRead == -1) //500?
-	{
-		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
-		throw std::invalid_argument("methodGet");
-	}
+		throw ErrorResponseException(500);
 	setContentType();
 	httpResponse.setResponseBody(responseBody);
 	httpResponse.setStatus(200);
@@ -203,19 +185,13 @@ void HttpRequest::methodPost(void)
 	int fd;
 
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
-	if (fd == -1) //500?
-	{
-		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
-		throw std::invalid_argument("methodPost");
-	}
+	if (fd == -1) //500
+		throw ErrorResponseException(500);
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1) //500?
-	{
-		httpResponse.buildErrorResponse(500, 1, clientfd, errorPages);
-		throw std::invalid_argument("methodPost");
-	}
-	setContentType();
+		throw ErrorResponseException(500);
+	setContentType(); //unsupported media type here??!!!
 	httpResponse.buildErrorResponse(200, 1, clientfd, errorPages);
 }
 
@@ -227,17 +203,13 @@ void HttpRequest::methodDelete(void)
 	{
 		removed = std::filesystem::remove(completePath);
 		if (removed)
-			httpResponse.buildErrorResponse(200, 1, clientfd, errorPages);
+			httpResponse.buildErrorResponse(204, 1, clientfd, errorPages); //FIX!!!
 		else
-		{
-			httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
-			throw std::invalid_argument("methodDelete");
-		}
+			throw ErrorResponseException(404);
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		httpResponse.buildErrorResponse(403, 1, clientfd, errorPages);
-		throw std::invalid_argument("methodDelete");
+		throw ErrorResponseException(403);
 	}
 }
 
@@ -265,10 +237,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 		//in case of exact match, return that?
 	}
 	if (!match_found)
-	{
-		httpResponse.buildErrorResponse(404, 1, clientfd, errorPages);
-		throw std::invalid_argument("from findCurrentLocation");
-	}
+		throw ErrorResponseException(404);
 }
 
 void HttpRequest::checkPathIsSafe(void)
@@ -306,12 +275,7 @@ void HttpRequest::checkPathIsSafe(void)
 			normalizedPath += "/";
 	}
 	if (normalizedPath.find(currentLocation.root) != 0)
-	{
-		std::cout << "normalized path is forbidden..." << std::endl;
-		//403 forbidden
-		httpResponse.buildErrorResponse(403, 1, clientfd, errorPages);
-		throw std::invalid_argument("from check path is safe");
-	}
+		throw ErrorResponseException(403);
 }
 
 void HttpRequest::makeRootAbsolute(std::string& myRoot)
@@ -339,10 +303,10 @@ void HttpRequest::setErrorPages(std::map<int, std::string> pages, std::string ro
 
 void HttpRequest::doRequest(ServerConfig config)
 {
-	makeRootAbsolute(config.root);
-	setErrorPages(config.error_pages, config.root);
-	try 
+	try
 	{
+		makeRootAbsolute(config.root);
+		setErrorPages(config.error_pages, config.root);
 		//make sure all response stuff, like response body, is cleared out/empty for every request
 		dump();
 		//std::cout << "path in do request without root: " << path << std::endl;
@@ -375,10 +339,30 @@ void HttpRequest::doRequest(ServerConfig config)
 			//method not allowed
 		}
 	}
-	catch (std::invalid_argument &e)
+	catch (ErrorResponseException &e)
 	{
-		std::cout << "ERROR FROM DO REQUEST " << e.what() << std::endl;
+		Response::buildErrorResponse(e.getResponseStatus(), 1, clientfd, errorPages);
 	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
+		Response::buildErrorResponse(500, 1, clientfd, errorPages);
+	}
+}
+
+HttpRequest::ErrorResponseException::ErrorResponseException(int status)
+{
+	responseStatus = status;
+}
+
+const char *HttpRequest::ErrorResponseException::what() const noexcept
+{
+	return ("Http response is an error");
+}
+
+int HttpRequest::ErrorResponseException::getResponseStatus(void)
+{
+	return (responseStatus);
 }
 
 //Aina end

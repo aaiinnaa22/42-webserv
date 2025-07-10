@@ -39,6 +39,16 @@ class HttpRequest
 		void checkPathIsSafe(void);
 		void makeRootAbsolute(std::string& myRoot);
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
+		class ErrorResponseException : public std::exception
+		{
+			private:
+				int responseStatus;
+			public: 
+				const char *what() const noexcept override;
+				ErrorResponseException(int status);
+				int getResponseStatus(void);
+		};
+		
 
 	public:
 		void		parse(const std::string& request);
