@@ -85,161 +85,140 @@ Response& ClientConnection::getResponse()
 
 ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len)
 {
-	buffer.append(data, len);
-	auto respondWithError = [&](int code) -> parseResult
-	{
-		response = Response::buildErrorResponse(code, 1, fd);
-		//can  this send already????
-		return ERROR;
-	};
-
-	while (true)
-	{
-		if (state == REQUEST_LINE)
+	try
+	{	
+		buffer.append(data, len);
+		// auto respondWithError = [&](int code) -> parseResult
+		// {
+		// 	response = Response::buildErrorResponse(code, 1, fd);
+		// 	//can  this send already????
+		// 	return ERROR;
+		// };
+		int currentChunkSize = -1;
+		while (true)
 		{
-			size_t line_end = buffer.find("\r\n");
-			if (line_end == std::string::npos)
-				return INCOMPLETE;
-			std::string request_line = buffer.substr(0, line_end);
-			buffer.erase(0, line_end);
+			if (state == REQUEST_LINE)
+			{
+				size_t line_end = buffer.find("\r\n");
+				if (line_end == std::string::npos)
+					return INCOMPLETE;
+				std::string request_line = buffer.substr(0, line_end);
+				buffer.erase(0, line_end);
 
-			if (!is_ascii(request_line))
-				return respondWithError(400);
-			std::istringstream stream(request_line);
-			std::string method, path, version;
-			if (!(stream >> method >> path))
-				return respondWithError(400);
-			if (!(stream >> version))
-    			version = "HTTP/1.1";
-			if (method.empty() || path.empty())
-				return respondWithError(400);
-			if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
-				return respondWithError(400);
-			if (method != "GET" && method != "POST" && method != "DELETE")
-				return respondWithError(405);
-			else if (!is_valid_http_version_syntax(version))
-				return respondWithError(400);
-			if (version != "HTTP/1.1")
-				return (respondWithError(505));
-			request.setMethod(method);
-			request.setPath(path);
-			request.setHttpVersion(version);
-			state = HEADERS;
-		}
-		else if (state == HEADERS)
-		{
-    		size_t headers_end = buffer.find("\r\n\r\n");
-			if (headers_end == std::string::npos)
-                return INCOMPLETE;
-			if (headers_end == 0)
-				return respondWithError(400);
-			std::string headers_str = buffer.substr(0, headers_end);
-			buffer.erase(0, headers_end + 4);
-			std::istringstream stream(headers_str);
-			std::string line;
-			while (std::getline(stream, line))
-			{
-				if (line.back() == '\r')
-					line.pop_back();
-				if (line.empty())
-					continue; 
-				size_t colon = line.find(':');
-				if (colon == std::string::npos)
-					return respondWithError(400);
-				std::string key = line.substr(0, colon);
-				normalize_case(key);
-				std::string value = line.substr(colon + 1);
-				value.erase(0, value.find_first_not_of(" "));
-				request.addHeader(key, value);
+				if (!is_ascii(request_line))
+					throw ErrorResponseException(400);
+				std::istringstream stream(request_line);
+				std::string method, path, version;
+				if (!(stream >> method >> path))
+					throw ErrorResponseException(400);
+				if (!(stream >> version))
+					version = "HTTP/1.1";
+				if (method.empty() || path.empty())
+					throw ErrorResponseException(400);
+				if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
+					throw ErrorResponseException(400);
+				if (method != "GET" && method != "POST" && method != "DELETE")
+					throw ErrorResponseException(405);
+				else if (!is_valid_http_version_syntax(version))
+					throw ErrorResponseException(400);
+				if (version != "HTTP/1.1")
+					throw ErrorResponseException(505);
+				request.setMethod(method);
+				request.setPath(path);
+				request.setHttpVersion(version);
+				state = HEADERS;
 			}
-			std::string connType = request.getHeader("connection");
-			if (connType == "close")
-				isKeepAlive = false;
-			std::string checkHost = request.getHeader("host");
-			if (checkHost.empty())
-				return respondWithError(400);
-			std::string encoding = request.getHeader("transfer-encoding");
-			std::string contentLengthVal = request.getHeader("content-length");
-			if (!encoding.empty() && encoding != "chunked")
-				return respondWithError(501);
-			else if (!encoding.empty() && encoding == "chunked")
+			else if (state == HEADERS)
 			{
-				if (!contentLengthVal.empty())
-					return respondWithError(400);
-				state = CHUNKED_BODY;
+				size_t headers_end = buffer.find("\r\n\r\n");
+				if (headers_end == std::string::npos)
+					return INCOMPLETE;
+				if (headers_end == 0)
+					throw ErrorResponseException(400);
+				std::string headers_str = buffer.substr(0, headers_end);
+				buffer.erase(0, headers_end + 4);
+				std::istringstream stream(headers_str);
+				std::string line;
+				while (std::getline(stream, line))
+				{
+					if (line.back() == '\r')
+						line.pop_back();
+					if (line.empty())
+						continue; 
+					size_t colon = line.find(':');
+					if (colon == std::string::npos)
+						throw ErrorResponseException(400);
+					std::string key = line.substr(0, colon);
+					normalize_case(key);
+					std::string value = line.substr(colon + 1);
+					value.erase(0, value.find_first_not_of(" "));
+					request.addHeader(key, value);
+				}
+				std::string connType = request.getHeader("connection");
+				if (connType == "close")
+					isKeepAlive = false;
+				std::string checkHost = request.getHeader("host");
+				if (checkHost.empty())
+					throw ErrorResponseException(400);
+				std::string encoding = request.getHeader("transfer-encoding");
+				std::string contentLengthVal = request.getHeader("content-length");
+				if (!encoding.empty() && encoding != "chunked")
+					throw ErrorResponseException(501);
+				else if (!encoding.empty() && encoding == "chunked")
+				{
+					if (!contentLengthVal.empty())
+						throw ErrorResponseException(400);
+					state = CHUNKED_BODY;
+				}
+				else if (!contentLengthVal.empty())
+				{
+					expected_body_len = std::stoi(contentLengthVal);
+					if (expected_body_len < 0)
+						throw ErrorResponseException(400);
+					state = BODY;
+				}
+				else
+					state = COMPLETE;
 			}
-			else if (!contentLengthVal.empty())
+			else if (state == BODY)
 			{
-				expected_body_len = std::stoi(contentLengthVal);
-				if (expected_body_len < 0)
-					return respondWithError(400);
-				state = BODY;
-			}
-			else
+				if (buffer.size() < expected_body_len)
+					return INCOMPLETE;
+				request.setBody(buffer.substr(0, expected_body_len));
+				buffer.erase(0, expected_body_len);
 				state = COMPLETE;
-		}
-		else if (state == BODY)
-		{
-			if (buffer.size() < expected_body_len)
-				return INCOMPLETE;
-			request.setBody(buffer.substr(0, expected_body_len));
-			buffer.erase(0, expected_body_len);
-			state = COMPLETE;
-		}
-		else if (state == CHUNKED_BODY)
-		{
-			std::cout << "do we get here - chunked\n";
-			while (true)
-			{
-				size_t chunkSizeEnd = buffer.find("\r\n");
-				if (chunkSizeEnd == std::string::npos)
-            		return INCOMPLETE;
-				std::string chunkSizeStr = buffer.substr(0, chunkSizeEnd);
-        		buffer.erase(0, chunkSizeEnd + 2);
-
-        		int chunkSize = 0;
-        		try 
-				{
-           			chunkSize = std::stoi(chunkSizeStr, nullptr, 16);
-        		} 
-				catch (...) 
-				{
-            		return respondWithError(400);
-        		}		
-        		if (chunkSize == 0)
-       		 	{	
-            		size_t bodyEnd = buffer.find("\r\n");
-            		if (bodyEnd != 0)
-                		return respondWithError(400);
-            		buffer.erase(0, 2);
-            		state = COMPLETE;
-            		break;
-        		}
-        		if (buffer.size() < static_cast<size_t>(chunkSize + 2))
-            		return INCOMPLETE;
-
-        		std::string chunkData = buffer.substr(0, chunkSize);
-				std::string chunkEnding = buffer.substr(chunkSize, 2);
-				if (chunkEnding != "\r\n")
-					return respondWithError(400);
-        		buffer.erase(0, chunkSize + 2);
-        		chunkedBodyBuffer += chunkData;
 			}
-    		request.setBody(chunkedBodyBuffer);
-		}
-		else if (state == COMPLETE)
-		{
-			std::cout << "chunked body buffer: " << chunkedBodyBuffer << std::endl; 
-			std::string connectionType = request.getHeader("connection");
-			if (connectionType == "close")
-				isKeepAlive = false;
-			std::string chosenHost = request.getHeader("host");
-			std::cout << "Bound servers count: " << bound_servers.size() << ", Host header: " << chosenHost << std::endl;
-			selected_server = selectServerByHost(bound_servers, chosenHost);
-			request.doRequest(*selected_server);
-			return DONE;
+			else if (state == CHUNKED_BODY)
+			{
+				std::cout << "parsing chunked body\n";
+				//size_t chunkedEnd = buffer.find("0\r\n");
+			}
+			else if (state == COMPLETE)
+			{
+				std::cout << "chunked body buffer: " << chunkedBodyBuffer << std::endl; 
+				std::string connectionType = request.getHeader("connection");
+				if (connectionType == "close")
+					isKeepAlive = false;
+				std::string chosenHost = request.getHeader("host");
+				std::cout << "Bound servers count: " << bound_servers.size() << ", Host header: " << chosenHost << std::endl;
+				selected_server = selectServerByHost(bound_servers, chosenHost);
+				request.doRequest(*selected_server);
+				return DONE;
+			}
 		}
 	}
+	catch (ErrorResponseException &e)
+	{
+		Response::buildErrorResponse(e.getResponseStatus(), 1, fd);
+		return ERROR;
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
+		Response::buildErrorResponse(500, 1, fd);
+		return ERROR;
+	}
+	return ERROR;
 }
 
 void ClientConnection::setLastActivity(void)

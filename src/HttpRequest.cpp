@@ -350,21 +350,6 @@ void HttpRequest::doRequest(ServerConfig config)
 	}
 }
 
-HttpRequest::ErrorResponseException::ErrorResponseException(int status)
-{
-	responseStatus = status;
-}
-
-const char *HttpRequest::ErrorResponseException::what() const noexcept
-{
-	return ("Http response is an error");
-}
-
-int HttpRequest::ErrorResponseException::getResponseStatus(void)
-{
-	return (responseStatus);
-}
-
 //Aina end
 
 const std::map<std::string, std::string>& HttpRequest::getHeaders() const 
