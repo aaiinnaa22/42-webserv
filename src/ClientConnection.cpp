@@ -50,6 +50,7 @@ void ClientConnection::resetState()
 	request = HttpRequest(fd);
 	selected_server = nullptr;
 	setLastActivity();
+	chunkedBodyBuffer.erase();
 }
 
 const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers, const std::string& hostHeader) 
@@ -149,7 +150,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				normalize_case(key);
 				std::string value = line.substr(colon + 1);
 				value.erase(0, value.find_first_not_of(" "));
-
 				request.addHeader(key, value);
 			}
 			std::string connType = request.getHeader("connection");
@@ -158,10 +158,19 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			std::string checkHost = request.getHeader("host");
 			if (checkHost.empty())
 				return respondWithError(400);
+			std::string encoding = request.getHeader("transfer-encoding");
 			std::string contentLengthVal = request.getHeader("content-length");
-			if (!contentLengthVal.empty())
+			if (!encoding.empty() && encoding != "chunked")
+				return respondWithError(501);
+			else if (!encoding.empty() && encoding == "chunked")
 			{
-				expected_body_len = std::stoi(contentLengthVal);//stoi check!
+				if (!contentLengthVal.empty())
+					return respondWithError(400);
+				state = CHUNKED_BODY;
+			}
+			else if (!contentLengthVal.empty())
+			{
+				expected_body_len = std::stoi(contentLengthVal);
 				if (expected_body_len < 0)
 					return respondWithError(400);
 				state = BODY;
@@ -177,8 +186,50 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			buffer.erase(0, expected_body_len);
 			state = COMPLETE;
 		}
+		else if (state == CHUNKED_BODY)
+		{
+			std::cout << "do we get here - chunked\n";
+			while (true)
+			{
+				size_t chunkSizeEnd = buffer.find("\r\n");
+				if (chunkSizeEnd == std::string::npos)
+            		return INCOMPLETE;
+				std::string chunkSizeStr = buffer.substr(0, chunkSizeEnd);
+        		buffer.erase(0, chunkSizeEnd + 2);
+
+        		int chunkSize = 0;
+        		try 
+				{
+           			chunkSize = std::stoi(chunkSizeStr, nullptr, 16);
+        		} 
+				catch (...) 
+				{
+            		return respondWithError(400);
+        		}		
+        		if (chunkSize == 0)
+       		 	{	
+            		size_t bodyEnd = buffer.find("\r\n");
+            		if (bodyEnd != 0)
+                		return respondWithError(400);
+            		buffer.erase(0, 2);
+            		state = COMPLETE;
+            		break;
+        		}
+        		if (buffer.size() < static_cast<size_t>(chunkSize + 2))
+            		return INCOMPLETE;
+
+        		std::string chunkData = buffer.substr(0, chunkSize);
+				std::string chunkEnding = buffer.substr(chunkSize, 2);
+				if (chunkEnding != "\r\n")
+					return respondWithError(400);
+        		buffer.erase(0, chunkSize + 2);
+        		chunkedBodyBuffer += chunkData;
+			}
+    		request.setBody(chunkedBodyBuffer);
+		}
 		else if (state == COMPLETE)
 		{
+			std::cout << "chunked body buffer: " << chunkedBodyBuffer << std::endl; 
 			std::string connectionType = request.getHeader("connection");
 			if (connectionType == "close")
 				isKeepAlive = false;

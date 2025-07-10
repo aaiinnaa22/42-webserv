@@ -130,7 +130,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		if ((events[i].events & EPOLLIN))
 		{
-			std::cout << "Do we get here?"<< std::endl;
+			// std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
@@ -148,7 +148,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				try 
 				{
 					int result = conn.parseData(buffer, bytes_read);
-					if (result == 2)
+					if (result == 2)//both possibly be one if now (result DONE and result ERROR)
 					{
 						// std::string errorResponse = conn.getResponse().toString();
 						// std::cout << errorResponse << "before send test"<< std::endl;
@@ -186,6 +186,12 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			{
 				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
 			}
+			catch (...)//stoi fail in parsing or any other function fails from parseData
+			{
+				std::cout << "unusual error with parsing" << std::endl;
+				conn.resetState();
+			}
+
 			}
 			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {
@@ -304,10 +310,10 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
 
-				std::cout << "Last activity of connection " << conn.getFd() 
-						<< " " << time_out_timer << " seconds ago." << std::endl;
+				// std::cout << "Last activity of connection " << conn.getFd() 
+						// << " " << time_out_timer << " seconds ago." << std::endl;
 
-				if (time_out_timer > 60) {
+				if (time_out_timer > 120) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 					close(fd);

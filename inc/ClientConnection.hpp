@@ -10,11 +10,13 @@ class ClientConnection
 	private:
 		int fd;
 		std::string buffer;
+		std::string chunkedBodyBuffer;
 		enum ParseState
 		{
 			REQUEST_LINE,
 			HEADERS,
 			BODY,
+			CHUNKED_BODY,
 			COMPLETE
 		} state;
 		
