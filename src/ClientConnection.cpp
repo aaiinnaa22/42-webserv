@@ -88,7 +88,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	buffer.append(data, len);
 	auto respondWithError = [&](int code) -> parseResult
 	{
-		response = Response::buildResponse(code, 1, fd);
+		response = Response::buildErrorResponse(code, 1, fd);
 		//can  this send already????
 		return ERROR;
 	};

@@ -9,7 +9,8 @@
 #include <ctime>
 
  Server::Server() : _on(1), _epollfd(0), _read_count(0){
-	_serverfd[5] = {0};
+	for (int i = 0; i < 5; i++){
+		_serverfd[i] = 0;}
 	int _clientfd = 0; // unusedd??
  }
 
@@ -20,8 +21,8 @@
 		if (connections[k].getFd() != -1)	
 			close(connections[k].getFd());
 	}
-	for (size_t s = 0; _serverfd[s] != 0; s++)
-	{
+	for (size_t s = 0; _serverfd[s] != 0 ; s++)
+	{	
 		close(_serverfd[s]);
 	}
 	close(_epollfd);
@@ -323,24 +324,6 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			}
 			++it;
 		}
-		// for (size_t k = 0; k < connections.size(); k++)
-		// {	
-		// 	if (connections[k].getFd() != -1)
-		// 	{
-		// 		result = std::time(nullptr);
-   		// 		std::asctime(std::localtime(&result));
-		// 		std::cout << "Last activity of connection " << connections[k].getFd() << " ";
-		// 		time_out_timer = result - connections[k].getLastActivity();
-		// 		std::cout <<  time_out_timer << result << " " << connections[k].getLastActivity() << " "<< " seconds ago." << std::endl;
-		// 		if (time_out_timer > 60)
-		// 		{
-		// 			std::cout << "Closing connection TIMEOUT " << connections[k].getFd() << std::endl;
-		// 			epoll_ctl(_epollfd, EPOLL_CTL_DEL, connections[k].getFd(), NULL);
-		// 		 	close(connections[k].getFd());
-		// 			connections.erase(connections[k].getFd());
-		// 		}	
-		// 	}
-		// }
 	}
 	// for (size_t k = 0; k < connections.size(); k++)
 	// {
