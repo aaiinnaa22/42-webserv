@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/10 15:49:29 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/10 16:50:24 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -103,10 +103,9 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	res.setStatus(statusCode);
 	res.setResponseHeader("content-type", "text/html");
 	
-	//body
 	std::string errorFile;
 	if (!errorPages.empty() && errorPages.find(statusCode) != errorPages.end())
-		errorFile = errorPages[statusCode]; //WONT WORK IF NOT FROM DOREQUEST FUNCS!
+		errorFile = errorPages[statusCode];
 	else
 		errorFile = "./www/error/" + std::to_string(statusCode) + ".html";
 	ssize_t chars_read;
@@ -114,16 +113,26 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	std::string responseBody;
 	//epoll?
 	int fd = open(errorFile.c_str(), O_RDONLY);
-	if (fd == -1)
+	if (fd == -1) //but it means not found?!
 	{
-		;//???
+		std::string safetyError = "<h1>500 - Internal Server Error</h1>";
+		res.setResponseBody(safetyError);
+		res.setStatus(500);
+		if (sendNow)
+			res.sendResponse(clientFd);
+		return (res);
 	}
 	while ((chars_read = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, chars_read);
 	close(fd);
 	if (chars_read == -1)
 	{
-		;//??
+		std::string safetyError = "<h1>500 - Internal Server Error</h1>";
+		res.setResponseBody(safetyError);
+		res.setStatus(500);
+		if (sendNow)
+			res.sendResponse(clientFd);
+		return (res);
 	}
 	res.setResponseBody(responseBody);
 	std::cout << "what i built in built error response\n";
@@ -139,10 +148,9 @@ void Response::sendResponse(int clientFd)
 	ssize_t sending;
 	std::string responseHeaders;
 	std::string contentLength;
-	std::string responseBody;
 	contentLength = std::to_string(body.size());
 
-	//.at for reasonPhrases can fail?!!?!?
+	//.at for reasonPhrases can fail, but should not happen since its hardcoded so that statuscode always exists in reasonPhrases
 	responseHeaders = httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n";
 	if (statusCode != 204)
 	{
@@ -157,15 +165,13 @@ void Response::sendResponse(int clientFd)
 		std::cout << "SEND FAILED" << std::endl;
 		throw std::runtime_error("");
 	}
-	//error check
-	responseBody = body;
-	sending = send(clientFd, responseBody.c_str(), responseBody.size(), MSG_NOSIGNAL);
-	if (sending == -1)
+	if (statusCode != 204)
 	{
-		std::cout << "SEND FAILED" << std::endl;
-		throw std::runtime_error("");
+		sending = send(clientFd, body.c_str(), body.size(), MSG_NOSIGNAL);
+		if (sending == -1)
+		{
+			std::cout << "SEND FAILED" << std::endl;
+			throw std::runtime_error("");
+		}
 	}
-	//error check DEFINETLY NEEDED THIS WILL CRASH THE SERVER T.Leo 6.7.2025 :)
-	//if (sending == -1)
-	// teapot?
 }
