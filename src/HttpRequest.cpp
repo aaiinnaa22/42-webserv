@@ -71,7 +71,7 @@ void HttpRequest::setContentType(void)
 	dot = completePath.rfind(".");
 	if (dot == std::string::npos)
 		throw ErrorResponseException(415);
-	fileExtension = completePath.substr(dot + 1, completePath.length()); //try catch in main
+	fileExtension = completePath.substr(dot + 1, completePath.length());
 	if (fileExtension == "html" || fileExtension == "css")
 		responseContentType = "text/" + fileExtension;
 	else if (fileExtension == "png" || fileExtension == "gif")
@@ -85,7 +85,6 @@ void HttpRequest::setContentType(void)
 	else
 		throw ErrorResponseException(415);
 	httpResponse.setResponseHeader("content-type", responseContentType);
-	//std::cout << "content type is " << responseContentType << std::endl;
 }
 
 
@@ -144,7 +143,6 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 	std::string responseBody;
-	//std::cout << "LETS TRY TO GET" << completePath << std::endl;
 	if (completePath.back() == '/' || checkPathIsDirectory() == 1)
 	{
 		if (!currentLocation.index.empty())
@@ -162,11 +160,9 @@ void HttpRequest::methodGet(void)
 
 	//cgi script??
 
-	//std::cout << "FINDING FILE..." << std::endl;
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
 		throw ErrorResponseException(404);
-	//std::cout << "FILE FOUND!" << std::endl;
 	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, charsRead);
 	close(fd);
@@ -203,7 +199,10 @@ void HttpRequest::methodDelete(void)
 	{
 		removed = std::filesystem::remove(completePath);
 		if (removed)
-			httpResponse.buildErrorResponse(204, 1, clientfd, errorPages); //FIX!!!
+		{
+			httpResponse.setStatus(204);
+			httpResponse.sendResponse(clientfd);
+		}
 		else
 			throw ErrorResponseException(404);
 	}
@@ -240,56 +239,37 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 		throw ErrorResponseException(404);
 }
 
-void HttpRequest::checkPathIsSafe(void)
+void HttpRequest::checkPathIsSafe(void) //??
 {
-	std::vector<std::string> pathParts;
-	int start = 0;
-	int end = 0;
-
-	while (end <= completePath.size())
+	std::filesystem::path canonicalPath;
+	try 
 	{
-		if (end == completePath.size() || completePath[end] == '/')
-		{
-			if (end > start)
-			{
-				std::string part = completePath.substr(start, end - start);
-				if (part == ".")
-					;
-				else if (part == "..")
-				{
-					if (!pathParts.empty())
-						pathParts.pop_back();
-				}
-				else
-					pathParts.push_back(part);
-			}
-			start = end + 1;
-		}
-		++end;
+		canonicalPath = std::filesystem::weakly_canonical(completePath);
+		//weakly_canonical allows us to make a path canonical, 
+		//even tho it does not exist (a path does not exist when i try to POST)
 	}
-	std::string normalizedPath = "/";
-	for (int i = 0; i < pathParts.size(); ++i)
+	catch (const std::filesystem::filesystem_error& e) 
 	{
-		normalizedPath += pathParts[i];
-		if (i != pathParts.size() - 1)
-			normalizedPath += "/";
+		throw ErrorResponseException(403);
 	}
-	if (normalizedPath.find(currentLocation.root) != 0)
+	if (canonicalPath.string().find(currentLocation.root) != 0)
 		throw ErrorResponseException(403);
 }
 
-void HttpRequest::makeRootAbsolute(std::string& myRoot)
+void HttpRequest::makeRootAbsolute(std::string& myRoot) //??
 {
 	std::filesystem::path root(myRoot);
 	try
 	{
 		if (root.is_relative())
 			root = std::filesystem::current_path() / root;
+		if (!std::filesystem::exists(root))
+			throw ErrorResponseException(404);
 		myRoot = std::filesystem::canonical(root);
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		std::cout << "make absolute error? should be 404/ 403?" << std::endl;
+		throw ErrorResponseException(403);
 	}
 }
 void HttpRequest::setErrorPages(std::map<int, std::string> pages, std::string root)
@@ -307,19 +287,16 @@ void HttpRequest::doRequest(ServerConfig config)
 	{
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
-		//make sure all response stuff, like response body, is cleared out/empty for every request
 		dump();
-		//std::cout << "path in do request without root: " << path << std::endl;
 		if (path.empty())
 		{
 			std::cout << "no path incoming to doRequest...stopping request" << std::endl;
 			return ;
 		}
 		findCurrentLocation(config);
-		makeRootAbsolute(currentLocation.root); //test
+		makeRootAbsolute(currentLocation.root);
 		completePath = currentLocation.root + path;
 		path.clear();
-		//std::cout << "path from do request: " << completePath << std::endl;
 		checkPathIsSafe();
 		if (method == "GET" && 
 			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
