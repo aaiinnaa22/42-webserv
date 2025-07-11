@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/10 16:50:24 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/11 15:26:37 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -145,6 +145,7 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 
 void Response::sendResponse(int clientFd)
 {
+	//ADD CONNECTION CLOSE OR KEEP-ALIVE
 	ssize_t sending;
 	std::string responseHeaders;
 	std::string contentLength;
@@ -157,6 +158,8 @@ void Response::sendResponse(int clientFd)
 		responseHeaders += "Content-Type: " + getHeader("content-type") + "\r\n" +
 						"Content-Length: " + contentLength + "\r\n";
 	}
+	//if (statusCode == 400)
+	//	responseHeaders += std::string("Connection: close") + "\r\n";
 	responseHeaders += "\r\n";
 
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);

@@ -11,7 +11,7 @@
  Server::Server() : _on(1), _epollfd(0), _read_count(0){
 	for (int i = 0; i < 5; i++){
 		_serverfd[i] = 0;}
-	int _clientfd = 0; // unusedd??
+	//int _clientfd = 0; // unusedd??
  }
 
  Server::~Server(){
@@ -29,7 +29,7 @@
  }
 
 /*  ...Fcntl
-	int fcntl(int fd, int op, ...) /* arg
+	int fcntl(int fd, int op, ...) arg
 	Used to modify behavior of already opened file descriptors.
 	F_GETFL (void)
         Return (as the function result) the file access mode and the file status flags; arg is ignored.
@@ -47,11 +47,11 @@
 int Server::set_non_blocking(int fd) 
 {
     int check = fcntl(fd, F_SETFL, O_NONBLOCK); // We set the new flags of the fd to be = old flags + the O_NONBLOCK flag using bitwise OR (|).
-		if (check == -1);
-			return check;
+	if (check == -1)
+		return check;
 	check = fcntl(fd, F_SETFD, FD_CLOEXEC); // Magical flag that will make FD's close after forking or execv ( we shall see)
-		if (check == -1)
-			return check;
+	if (check == -1)
+		return check;
 	return 0;
 }
 /*
@@ -84,7 +84,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	{	
 		matching_servers.clear(); //clearing for the next loop iteration
 		fd = events[i].data.fd;
-		for(int f = 0; f < servers.size(); f++)
+		for(size_t f = 0; f < servers.size(); f++)
 		{
 			if ((fd == _serverfd[f]) && (events[i].events & EPOLLIN)) // Probably no need to check EPOLLIN
 			{
@@ -158,6 +158,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			
 						if (!conn.getIsAlive())
 						{
+							std::cout << "CLOSING CONNECTION!!!" << std::endl;
 							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 							close(fd);
 							connections.erase(fd);
@@ -276,14 +277,14 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	*/
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
-	int time_out_timer = 0;
+	//int time_out_timer = 0;
 	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
 		return -1;
 	struct epoll_event ev;
 	ev.events = EPOLLIN; // | EPOLLET; // not sure if I need this here.
-	for(int i = 0; i < servers.size(); i++){
+	for(size_t i = 0; i < servers.size(); i++){
 		ev.data.fd = _serverfd[i];
 		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0 ){
 			close(_epollfd);
@@ -291,8 +292,8 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 	}
 
 	//Setting up server time stamp
-	time_t timestamp;
-	struct tm datetime = {0};
+	//time_t timestamp;
+	struct tm datetime{};
   	int seconds = mktime(&datetime);
 	std::cout << seconds << std::endl;
 	std::time_t result = std::time(nullptr);
@@ -393,7 +394,7 @@ int32_t Server::get_networkaddress(std::string host)
 
 void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, std::string host)
 {
-	for(int i = 0; i < servers.size(); i++)
+	for(size_t i = 0; i < servers.size(); i++)
 	{
 		_serverfd[i] = socket(AF_INET, SOCK_STREAM, 0);
 		if (_serverfd[i] < 0){

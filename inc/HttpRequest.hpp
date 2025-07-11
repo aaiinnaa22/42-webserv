@@ -10,6 +10,9 @@
 #include <sys/stat.h> //stat()
 #include "Response.hpp"
 #include "ErrorResponseException.hpp"
+#include "string" //FOR ENDS_WITH???
+#include <cstdlib>
+#include <sys/wait.h> //waitpid
 
 class HttpRequest
 {
@@ -27,19 +30,26 @@ class HttpRequest
 		std::map<int, std::string> errorPages;
 		int clientfd;
 		LocationConfig currentLocation;
+		std::string originalPath;
 		std::string completePath;
 		Response httpResponse;
+		std::string queryString;
+		std::vector<std::string> envVariables;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
-		void doCgi();
-		void setContentType(void);
+		void doCgi(std::string interpreterPath, ServerConfig config);
+		void setContentType(int postCheck = 0);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
 		void checkPathIsSafe(void);
 		void makeRootAbsolute(std::string& myRoot);
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
+		void urlToRealPath(void);
+		char hexToChar(char c);
+		std::vector<char *>setupCgiEnv(ServerConfig config);
+		void checkQueryString(void);
 
 	public:
 		void		parse(const std::string& request);

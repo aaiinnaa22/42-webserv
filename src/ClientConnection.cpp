@@ -94,7 +94,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		// 	//can  this send already????
 		// 	return ERROR;
 		// };
-		int currentChunkSize = -1;
+		//int currentChunkSize = -1;
 		while (true)
 		{
 			if (state == REQUEST_LINE)

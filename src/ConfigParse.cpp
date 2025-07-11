@@ -44,6 +44,7 @@ std::string extractConfig(const std::string &line, const std::string &keyword)
 
 LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, std::vector<LocationConfig> &locations)
 {
+	(void)locations;
 	LocationConfig locBlock;
 	locBlock.dir_listing = false;
 	locBlock.redirect_code = -1;

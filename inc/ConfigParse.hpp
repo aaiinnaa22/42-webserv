@@ -12,7 +12,7 @@ struct LocationConfig
 {
 	std::string path = "/";
 	std::string root = "";
-	std::string index = "index.html";
+	std::string index = "";
 	std::vector<std::string> methods;
 	std::string cgi_path_php = "";
 	std::string cgi_path_python = "";

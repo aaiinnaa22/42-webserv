@@ -3,7 +3,7 @@
 
 bool gSignalClose = false;
 
-void signal_handler(int signal){gSignalClose = true;}
+void signal_handler(int signal){ (void)signal; gSignalClose = true;}
 
 int main(int argc, char **argv)
 {
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	{
 		try
 		{
-			for (int i = 0; i < servers.size(); i++)
+			for (size_t i = 0; i < servers.size(); i++)
 			{
 				std::cout << servers[i].listen_port << " --> listen port\n";
 				std::cout << servers[i].host << " --> host\n";

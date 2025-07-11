@@ -62,7 +62,7 @@
 HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 
 
-void HttpRequest::setContentType(void)
+void HttpRequest::setContentType(int postCheck)
 {
 	size_t dot;
 	std::string fileExtension;
@@ -72,6 +72,13 @@ void HttpRequest::setContentType(void)
 	if (dot == std::string::npos)
 		throw ErrorResponseException(415);
 	fileExtension = completePath.substr(dot + 1, completePath.length());
+	if (postCheck == 1) //dont allow posting of scripts (can be dangerous) (except for cgi...)
+	{
+		//cgi???
+		if (fileExtension != "jpg" && fileExtension != "jpeg" && fileExtension != "png"
+				&& fileExtension != "gif" && fileExtension != "pdf")
+			throw ErrorResponseException(415);
+	}
 	if (fileExtension == "html" || fileExtension == "css")
 		responseContentType = "text/" + fileExtension;
 	else if (fileExtension == "png" || fileExtension == "gif")
@@ -82,6 +89,8 @@ void HttpRequest::setContentType(void)
 		responseContentType = "text/plain";
 	else if (fileExtension == "ico")
 		responseContentType = "image/x-icon";
+	else if (fileExtension == "pdf")
+		responseContentType = "application/pdf";
 	else
 		throw ErrorResponseException(415);
 	httpResponse.setResponseHeader("content-type", responseContentType);
@@ -155,10 +164,9 @@ void HttpRequest::methodGet(void)
 			httpResponse.sendResponse(clientfd);
 			return ;
 		}
-		//else?? 404 not found??
+		else
+			ErrorResponseException(403);
 	}
-
-	//cgi script??
 
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
 	if (fd == -1)
@@ -180,6 +188,7 @@ void HttpRequest::methodPost(void)
 	ssize_t charsWritten;
 	int fd;
 
+	setContentType(1);
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1) //500
 		throw ErrorResponseException(500);
@@ -187,8 +196,8 @@ void HttpRequest::methodPost(void)
 	close(fd);
 	if (charsWritten == -1) //500?
 		throw ErrorResponseException(500);
-	setContentType(); //unsupported media type here??!!!
-	httpResponse.buildErrorResponse(200, 1, clientfd, errorPages);
+	httpResponse.setStatus(200);
+	httpResponse.sendResponse(clientfd);
 }
 
 void HttpRequest::methodDelete(void)
@@ -212,9 +221,6 @@ void HttpRequest::methodDelete(void)
 	}
 }
 
-void HttpRequest::doCgi(void)
-{}
-
 void HttpRequest::findCurrentLocation(ServerConfig config)
 {
 	int longest_match_len = 0;
@@ -223,7 +229,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 	for (auto location : config.locations)
 	{
-		if (path.find(location.path) == 0) //path starts with location path
+		if (originalPath.find(location.path) == 0) //path starts with location path
 		{
 			match_len = location.path.length();
 			if (match_len > longest_match_len)
@@ -277,28 +283,199 @@ void HttpRequest::setErrorPages(std::map<int, std::string> pages, std::string ro
 	if (pages.empty())
 		return ;
 	for (auto& [status, path] : pages)
-		path = root + path;
+		path = root + path; //same name as in httprequest!!?
 	errorPages = pages;
+}
+
+char HttpRequest::hexToChar(char c)
+{
+	if ('0' <= c && c <= '9')
+		return (c - '0');
+	else if ('a' <= c && c <= 'f')
+		return (c - 'a' + 10);
+	else if ('A' <= c && c <= 'F')
+		return (c - 'A' + 10);
+	//throw???
+	return (0);
+}
+
+void HttpRequest::urlToRealPath(void)
+{
+	std::string realPath;
+
+	for (size_t i = 0; i < originalPath.length(); ++i)
+	{
+		if (originalPath[i] == '%')
+		{
+			if (i + 2 >= originalPath.length())
+				; //throw??
+			char first = originalPath[i + 1];
+			char second = originalPath[i + 2];
+			realPath += (hexToChar(first) << 4) | hexToChar(second);
+			i += 2;
+		}
+		else if (originalPath[i] == '+')
+			realPath += " ";
+		else 
+			realPath += originalPath[i];
+		
+	}
+	originalPath = realPath;
+}
+
+std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config)
+{
+	std::vector<char *> envp;
+	std::string header;
+
+	envVariables.push_back("REQUEST_METHOD=" + method);
+	envVariables.push_back("SCRIPT_NAME=" + originalPath);
+	envVariables.push_back("SCRIPT_FILENAME=" + completePath);
+	envVariables.push_back("SERVER_PROTOCOL=HTTP/1.1");
+	envVariables.push_back("SERVER_NAME=" + config.server_names.at(0));
+	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
+
+	if (method == "GET")
+		envVariables.push_back("QUERY_STRING=" + queryString);
+	else if (method == "POST")
+	{
+		header = headers.at("content-length");
+		envVariables.push_back("CONTENT_LENGTH=" + header);
+		header = headers.at("content-type");
+		envVariables.push_back("CONTENT_TYPE=" + header);
+	}
+	//what if method DELETE?
+	for (size_t i = 0; i < envVariables.size(); ++i)
+	{
+		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
+		envp.push_back(const_cast<char *>(envVariables[i].c_str()));
+	}
+	envp.push_back(nullptr);
+	return (envp);
+}
+
+void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config)
+{
+	std::filesystem::path checkPath(completePath);
+	if (!std::filesystem::exists(checkPath))
+		throw ErrorResponseException(404);
+
+	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
+	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
+	char *argv[] =
+	{
+		const_cast<char *>(interpreterPath.c_str()),
+		const_cast<char *>(completePath.c_str()),
+		nullptr
+	};
+	std::vector<char *> envp = setupCgiEnv(config);
+	std::cout << "ENVP 0: " << envp[0] << std::endl;
+	int pipeFd[2];
+
+	if (pipe(pipeFd) == -1)
+		throw ErrorResponseException(500);
+	
+	std::cout << "HELLO CGI?" << std::endl;
+	pid_t pid = fork();
+	if (pid == -1)
+	{
+		close(pipeFd[0]);
+		close(pipeFd[1]);
+		throw ErrorResponseException(500);
+	}
+	if (pid == 0)
+	{
+		close(pipeFd[0]);
+		if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
+			_Exit(1);  //ALLOWED??!!
+		close (pipeFd[1]);
+		execve(interpreterPath.c_str(), argv, envp.data());
+		_Exit(1);
+	}
+	else
+	{
+		close(pipeFd[1]);
+
+		std::string cgiOutput;
+		char buffer[1000];
+		ssize_t charsRead;
+		while ((charsRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
+			cgiOutput.append(buffer, charsRead);
+		if (charsRead == -1)
+		{
+			close(pipeFd[0]);
+			throw ErrorResponseException(500);
+		}
+		
+		close(pipeFd[0]);
+
+		int status;
+		if (waitpid(pid, &status, 0) == -1)
+			throw ErrorResponseException(500);
+
+		std::cout << "CHILD STATUS: " << status << std::endl;
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+			throw ErrorResponseException(500);
+
+		//send cgiOutput???? to client???? what method is this? 
+		size_t pos = cgiOutput.find("\r\n\r\n");
+		size_t findLen = 4;
+
+		if (pos == std::string::npos) 
+		{
+			pos = cgiOutput.find("\n\n");
+			findLen = 2;
+		}
+		if (pos != std::string::npos)
+			cgiOutput = cgiOutput.substr(pos + findLen);
+
+		httpResponse.setResponseHeader("content-type", "text/html"); //setContentType(); find it in output headers instead and split cgiOutput to body and headers
+		httpResponse.setResponseBody(cgiOutput);
+		httpResponse.setStatus(200);
+		httpResponse.sendResponse(clientfd);
+	}
+}
+
+void HttpRequest::checkQueryString(void)
+{
+	size_t pos = originalPath.find('?');
+	if (pos == std::string::npos)
+		return ;
+	queryString = originalPath.substr(0 + pos + 1);
+	originalPath = originalPath.substr(0, pos);
+	std::cout << "MY QUERY: " << queryString << std::endl;
+	std::cout << "MY PATH AFTER QUERY: " << originalPath << std::endl;
 }
 
 void HttpRequest::doRequest(ServerConfig config)
 {
 	try
 	{
-		makeRootAbsolute(config.root);
-		setErrorPages(config.error_pages, config.root);
-		dump();
 		if (path.empty())
 		{
 			std::cout << "no path incoming to doRequest...stopping request" << std::endl;
 			return ;
 		}
-		findCurrentLocation(config);
-		makeRootAbsolute(currentLocation.root);
-		completePath = currentLocation.root + path;
+		std::cout << "INCOMING PATH: " << path << std::endl; 
+		originalPath = path;
 		path.clear();
+		makeRootAbsolute(config.root);
+		setErrorPages(config.error_pages, config.root);
+		checkQueryString(); //where have it??!!
+		std::cout << "hello 1" << std::endl;
+		//dump();
+		findCurrentLocation(config);
+		std::cout << "hello 2" << std::endl;
+		makeRootAbsolute(currentLocation.root);
+		urlToRealPath();
+		completePath = currentLocation.root + originalPath;
 		checkPathIsSafe();
-		if (method == "GET" && 
+		std::cout << "COMPLETE PATH: " << completePath << std::endl;
+		if (completePath.ends_with(".php"))
+			doCgi(currentLocation.cgi_path_php, config);
+		else if (completePath.ends_with(".py"))
+			doCgi(currentLocation.cgi_path_python, config);
+		else if (method == "GET" && 
 			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 			currentLocation.methods.end())
 			methodGet();

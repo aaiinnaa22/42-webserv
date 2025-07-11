@@ -35,10 +35,10 @@ class ClientConnection
 			ERROR
 		};
 		ClientConnection() : fd(-1), state(REQUEST_LINE), 
-			expected_body_len(0), request(-1),
+			request(-1), expected_body_len(0), 
 			isKeepAlive(true), bound_servers(), selected_server(nullptr), _lastactivity(0)  {}
 		ClientConnection(int fd, const std::vector<ServerConfig>& servers) : fd(fd), state(REQUEST_LINE), 
-			expected_body_len(0), request(fd),
+			request(fd), expected_body_len(0),
 			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr), _lastactivity(0)  {}
 		
 		int getFd() const { return fd; }
