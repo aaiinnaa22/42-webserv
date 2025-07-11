@@ -253,10 +253,7 @@ void HttpRequest::checkPathIsSafe(void) //??
 		throw ErrorResponseException(403);
 	}
 	if (canonicalPath.string().find(currentLocation.root) != 0)
-	{
-		std::cout << "PATH IS NOT SAFE, 403 FORBIDDEN WILL BE THROWN" << std::endl;
 		throw ErrorResponseException(403);
-	}
 }
 
 void HttpRequest::makeRootAbsolute(std::string& myRoot) //??
