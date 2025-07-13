@@ -1,13 +1,9 @@
 #include "../inc/ConfigParse.hpp"
 
-//simple directives and block directives
-//TO DO: nested blocks, directive parsing, errors????
-
-//DONE: cgi_path_php, cgi_path_python, dir_listing, and... return 307 /newDir/; (no idea what this is)
-//TO DO SUNDAY: comments are not stripped from the latter part of basic config
-
 //TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
 // WE SHALL SEE
+
+//TO DO: VALIDATE BASED ON MAX HEADER AND MAX BODY SIZE
 
 std::string cleanLine(const std::string &orgLine)
 {

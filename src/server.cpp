@@ -156,17 +156,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						//send(fd, errorResponse.c_str(), errorResponse.size(), 0);
 						// std::cout << errorResponse << " --> response sent\n";
 			
-						if (!conn.getIsAlive())
-						{
-							std::cout << "CLOSING CONNECTION!!!" << std::endl;
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-							close(fd);
-							connections.erase(fd);
-						}
-						else
-						{
-							conn.resetState();
-						}
+						// if (!conn.getIsAlive())
+						// {
+						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+						close(fd);
+						connections.erase(fd);
+						// }
+						// else
+						// {
+						// 	conn.resetState();
+						// }
 					}
 					else if (result == 1)
 					{
@@ -212,7 +211,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			connections.erase(fd);
 			continue ;
 		}
-		//std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
+		// std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
 		// for (size_t k = 0; k < connections.size(); k++)
 		// {
 		// 	std::cout << " Current connections" << connections[k].getFd() << std::endl;

@@ -530,6 +530,18 @@ std::string HttpRequest::getPath() const{
 	return path;
 }
 
+std::string HttpRequest::getMethod() const{
+	return method;
+}
+
+std::string HttpRequest::getBody(){
+	return body;
+}
+
+std::string HttpRequest::getHttpVersion(){
+	return httpVersion;
+}
+
 void HttpRequest::setHttpVersion(const std::string& v)
 {
 	httpVersion = v; 
@@ -543,6 +555,16 @@ void HttpRequest::addHeader(const std::string& key, const std::string& value)
 void HttpRequest::setBody(const std::string& b)
 {
 	body = b;
+}
+
+void HttpRequest::appendBody(const std::string& data)
+{
+    body += data;
+}
+
+void HttpRequest::setKeepAlive(bool isAlive)
+{
+	isKeepAlive = isAlive;
 }
 
 std::string HttpRequest::getHeader(const std::string& key) const
@@ -560,6 +582,7 @@ void HttpRequest::dump() const {
         std::cout << "  " << key << ": " << value << "\n";
     }
     std::cout << "Body:\n" << body << "\n";
+	std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
 }
 
 
