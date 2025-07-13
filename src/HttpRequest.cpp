@@ -1,62 +1,8 @@
 #include "../inc/Server.hpp"
 #include "../inc/HttpRequest.hpp"
 
-// void	HttpRequest::parse(const std::string &request)
-// {
-//  	std::istringstream stream(request);
-// 	std::string line;
-// 	//Method, path, version
-// 	std::getline(stream, line);
-//     size_t methodEnd = line.find(' ');
-//     size_t pathEnd = line.find(' ', methodEnd + 1);
-//     method = line.substr(0, methodEnd);
-// 	//check if method is GET POST OR DELETE, 405 if it's not
-//     path = line.substr(methodEnd + 1, pathEnd - methodEnd - 1);
-//     httpVersion = line.substr(pathEnd + 1);
-// 	//the prints are just checks - comment out if necessary
-// 	//std::cout << "\nFrom parsing:\n";
-// 	//std::cout << "method: " << method << std::endl;
-// 	//std::cout << "path: " << path << std::endl;
-// 	//std::cout << "http ver: " << httpVersion << std::endl;
-// 	//throw 505 if version is not 1.1????
-// 	//headers
-// 	//std::map<std::string, std::string> headers;
-// 	while(getline(stream, line))
-// 	{
-// 		if (line == "\r" || line.empty())
-//    	    	break;
-// 		size_t colon = line.find(':');
-// 		if (colon != std::string::npos)
-// 		{
-// 			std::string key = line.substr(0, colon);
-// 			std::string value = line.substr(colon + 2);
-// 			value.erase(value.find_last_not_of("\r\n") + 1);
-// 			headers[key] = value;
-// 		}
-// 	}
-// 	//another print for checking
-// 	//for (const auto& header : headers)
-// 	//{
-// 	//	std::cout << header.first << ": " << header.second << "\n";
-// 	//}
-// 	if (headers.count("Content-Length"))
-// 	{
-// 		int length = std::stoi(headers["Content-Length"]);
-// 		body.resize(length);
-// 		stream.read(&body[0], length);
-// 		if (stream.gcount() < length)
-// 		{
-//             throw std::runtime_error("400 Bad Request: Body incomplete");
-//         }// incomplete read check
-// 	}
-// 	//another print for checking
-// 	//if (!body.empty())
-// 	//{
-//     //    std::cout << "Body: " << body << "\n";
-//     //}
-// }
-
 //Aina
+
 
 //param constructor with client fd
 HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
@@ -72,9 +18,8 @@ void HttpRequest::setContentType(int postCheck)
 	if (dot == std::string::npos)
 		throw ErrorResponseException(415);
 	fileExtension = completePath.substr(dot + 1, completePath.length());
-	if (postCheck == 1) //dont allow posting of scripts (can be dangerous) (except for cgi...)
+	if (postCheck == 1) //dont allow posting of scripts 
 	{
-		//cgi???
 		if (fileExtension != "jpg" && fileExtension != "jpeg" && fileExtension != "png"
 				&& fileExtension != "gif" && fileExtension != "pdf")
 			throw ErrorResponseException(415);
@@ -185,6 +130,7 @@ void HttpRequest::methodGet(void)
 //EPOLL!!!
 void HttpRequest::methodPost(void)
 {
+	//post a directory?
 	ssize_t charsWritten;
 	int fd;
 
@@ -202,6 +148,7 @@ void HttpRequest::methodPost(void)
 
 void HttpRequest::methodDelete(void)
 {
+	//delete a directory?
 	bool removed;
 
 	try 
@@ -323,7 +270,7 @@ void HttpRequest::urlToRealPath(void)
 	originalPath = realPath;
 }
 
-std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config)
+std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pathInfo)
 {
 	std::vector<char *> envp;
 	std::string header;
@@ -334,17 +281,27 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config)
 	envVariables.push_back("SERVER_PROTOCOL=HTTP/1.1");
 	envVariables.push_back("SERVER_NAME=" + config.server_names.at(0));
 	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
+	envVariables.push_back("PATH_INFO=" + pathInfo);
 
 	if (method == "GET")
 		envVariables.push_back("QUERY_STRING=" + queryString);
 	else if (method == "POST")
 	{
-		header = headers.at("content-length");
+		//what if none?
+		if (headers.find("content-length") != headers.end())
+			header = headers.at("content-length");
+		else
+			header = "0"; 
 		envVariables.push_back("CONTENT_LENGTH=" + header);
-		header = headers.at("content-type");
+		if (headers.find("content-type") != headers.end())
+			header = headers.at("content-type");
+		else 
+			header = ""; //??
 		envVariables.push_back("CONTENT_TYPE=" + header);
+		envVariables.push_back("REQUEST_BODY=" + body);
 	}
-	//what if method DELETE?
+	else
+		throw ErrorResponseException(405);
 	for (size_t i = 0; i < envVariables.size(); ++i)
 	{
 		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
@@ -354,12 +311,58 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config)
 	return (envp);
 }
 
-void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config)
+std::string HttpRequest::getPathInfo(int interpreterCheck)
 {
-	std::filesystem::path checkPath(completePath);
-	if (!std::filesystem::exists(checkPath))
-		throw ErrorResponseException(404);
+	std::string pathInfo;
+	int lenOfPos = 0;
+	size_t posOfPathInfo = std::string::npos;
+	if (interpreterCheck == 1)
+	{
+		posOfPathInfo = completePath.find(".php");
+		lenOfPos = 4;
+	}
+	else if (interpreterCheck == 2)
+	{
+		posOfPathInfo = completePath.find(".py");
+		lenOfPos = 3;
+	}
+	if (posOfPathInfo == std::string::npos)
+		throw ErrorResponseException(500);
+	if (posOfPathInfo + 1 < completePath.size())
+	{
+		pathInfo = completePath.substr(posOfPathInfo + lenOfPos);
+		//remove "/" if its the first character?
+		completePath = completePath.substr(0, posOfPathInfo + lenOfPos);
+	}
+	std::cout << "PATH INFO: " << pathInfo << std::endl;
+	std::cout << "PATH TO SCRIPT: " << completePath << std::endl;
+	return (pathInfo);
+}
 
+void HttpRequest::checkCgiPaths(std::string interpreterPath)
+{
+	struct stat scriptStat;
+	if (stat(completePath.c_str(), &scriptStat) == -1) //file not exist or stat failed
+		throw ErrorResponseException(404); //NOT ALWAYS
+	if (!S_ISREG(scriptStat.st_mode))
+		throw ErrorResponseException(404);
+	if (access(completePath.c_str(), X_OK) == -1)
+		throw ErrorResponseException(403); 
+
+	struct stat interpreterStat;
+	if (stat(interpreterPath.c_str(), &interpreterStat) == -1)
+    	throw ErrorResponseException(404);
+	if (!S_ISREG(interpreterStat.st_mode))
+    	throw ErrorResponseException(404);
+	if (access(interpreterPath.c_str(), X_OK) == -1)
+		throw ErrorResponseException(403);
+}
+
+void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck)
+{
+	std::string pathInfo;
+	pathInfo = getPathInfo(interpreterCheck);
+	checkCgiPaths(interpreterPath);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
 	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
 	char *argv[] =
@@ -368,14 +371,12 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config)
 		const_cast<char *>(completePath.c_str()),
 		nullptr
 	};
-	std::vector<char *> envp = setupCgiEnv(config);
-	std::cout << "ENVP 0: " << envp[0] << std::endl;
+	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
 	int pipeFd[2];
 
 	if (pipe(pipeFd) == -1)
 		throw ErrorResponseException(500);
 	
-	std::cout << "HELLO CGI?" << std::endl;
 	pid_t pid = fork();
 	if (pid == -1)
 	{
@@ -385,6 +386,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config)
 	}
 	if (pid == 0)
 	{
+		(void)argv;
 		close(pipeFd[0]);
 		if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
 			_Exit(1);  //ALLOWED??!!
@@ -417,7 +419,6 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config)
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			throw ErrorResponseException(500);
 
-		//send cgiOutput???? to client???? what method is this? 
 		size_t pos = cgiOutput.find("\r\n\r\n");
 		size_t findLen = 4;
 
@@ -462,19 +463,18 @@ void HttpRequest::doRequest(ServerConfig config)
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
 		checkQueryString(); //where have it??!!
-		std::cout << "hello 1" << std::endl;
 		//dump();
 		findCurrentLocation(config);
-		std::cout << "hello 2" << std::endl;
 		makeRootAbsolute(currentLocation.root);
 		urlToRealPath();
 		completePath = currentLocation.root + originalPath;
 		checkPathIsSafe();
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
-		if (completePath.ends_with(".php"))
-			doCgi(currentLocation.cgi_path_php, config);
-		else if (completePath.ends_with(".py"))
-			doCgi(currentLocation.cgi_path_python, config);
+		std::cout << "I PRINT CGI PATHS, PHP: " << currentLocation.cgi_path_php << " AND PYTHON: " << currentLocation.cgi_path_python << std::endl;
+		if (completePath.find(".php") != std::string::npos) //check up, try std::filesystem::path(filename).extension() != ".py")
+			doCgi(currentLocation.cgi_path_php, config, 1);
+		else if (completePath.find(".py") != std::string::npos) //check up
+			doCgi(currentLocation.cgi_path_python, config, 2);
 		else if (method == "GET" && 
 			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 			currentLocation.methods.end())

@@ -14,6 +14,8 @@
 #include "ConfigParse.hpp" //ServerConfig
 #include "ClientConnection.hpp"
 
+class ClientConnection;
+
 extern bool gSignalClose;
 
 class Server {

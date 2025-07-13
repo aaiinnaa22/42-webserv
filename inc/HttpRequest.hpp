@@ -13,6 +13,11 @@
 #include "string" //FOR ENDS_WITH???
 #include <cstdlib>
 #include <sys/wait.h> //waitpid
+#include "Server.hpp" //maybe remove
+#include "ClientConnection.hpp"
+
+class Server;
+//class ClientConnection;
 
 class HttpRequest
 {
@@ -39,7 +44,7 @@ class HttpRequest
 		void methodGet();
 		void methodPost();
 		void methodDelete();
-		void doCgi(std::string interpreterPath, ServerConfig config);
+		void doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck);
 		void setContentType(int postCheck = 0);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
@@ -49,8 +54,10 @@ class HttpRequest
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
 		void urlToRealPath(void);
 		char hexToChar(char c);
-		std::vector<char *>setupCgiEnv(ServerConfig config);
+		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);
+		std::string getPathInfo(int interpreterCheck);
+		void checkCgiPaths(std::string interpreterPath);
 
 	public:
 		void		parse(const std::string& request);
@@ -74,3 +81,4 @@ class HttpRequest
 		
 		void dump() const;
 };
+
