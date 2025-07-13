@@ -101,6 +101,7 @@ Response& ClientConnection::getResponse()
 
 int	ClientConnection::parseRequestLine(std::string& buffer, size_t len)
 {
+	(void)len;
 	// std::cout << "request line call\n";
 	size_t line_end = buffer.find("\r\n");
 	if (line_end == std::string::npos)
@@ -306,7 +307,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					}
 					else
 					{
-						if (buffer.size() < chunk_size + 2)
+						if (buffer.size() < static_cast<size_t>(chunk_size + 2))
 							return INCOMPLETE;
 
 						std::string chunk_data = buffer.substr(0, chunk_size);
