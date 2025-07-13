@@ -29,6 +29,7 @@ class HttpRequest
 		LocationConfig currentLocation;
 		std::string completePath;
 		Response httpResponse;
+		bool isKeepAlive = true;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
@@ -43,16 +44,19 @@ class HttpRequest
 
 	public:
 		void		parse(const std::string& request);
-		std::string	getMethod();
+		std::string	getMethod() const;
 		std::string	getPath();
 		std::string	getPath() const;
 		std::string	getHttpVersion();
+		std::string getBody();
 		const std::map<std::string, std::string>& getHeaders() const;
 		void 		setMethod(const std::string& m);
     	void 		setPath(const std::string& p);
     	void 		setHttpVersion(const std::string& v);
     	void 		addHeader(const std::string& key, const std::string& value);
     	void 		setBody(const std::string& b);
+		void		setKeepAlive(bool isAlive);
+		void		appendBody(const std::string& data);
 		std::string	getHeader(const std::string& key) const;
 		void		doRequest(ServerConfig config);
 		

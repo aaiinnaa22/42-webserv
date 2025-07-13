@@ -19,10 +19,17 @@ class ClientConnection
 			CHUNKED_BODY,
 			COMPLETE
 		} state;
-		
+		enum chunkParseState
+		{
+			READ_CHUNK_SIZE,
+        	READ_CHUNK_DATA,
+        	READ_CHUNK_CRLF
+		};
 		HttpRequest request;
 		size_t expected_body_len;
 		bool isKeepAlive;
+		bool reading_chunk_size;
+		int chunk_size;
 		std::vector<ServerConfig> bound_servers; 
 		const ServerConfig* selected_server;
 		Response response;
@@ -43,6 +50,8 @@ class ClientConnection
 		
 		int getFd() const { return fd; }
 		parseResult parseData(const char* data, size_t len);
+		int	parseRequestLine(std::string& buffer, size_t len);
+		int parseHeaders(std::string buffer);
 		bool getIsAlive() const { return isKeepAlive; }
 		void resetState();
 
