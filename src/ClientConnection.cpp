@@ -185,7 +185,7 @@ int ClientConnection::parseHeaders(std::string buffer)
 	return 0;
 }
 
-ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len)
+ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len, const Server& server)
 {
 	// std::cout << "parseData call\n";
 	// std::cout << "BUFFER LEN: " << len << std::endl;
@@ -326,7 +326,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			if (state == COMPLETE)
 			{
 				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";			
-				request.doRequest(*selected_server);
+				request.doRequest(*selected_server, server);
 				return DONE;
 			}
 		}

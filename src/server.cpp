@@ -54,6 +54,7 @@ int Server::set_non_blocking(int fd)
 		return check;
 	return 0;
 }
+
 /*
 	Here we loop through the events if epoll_wait() returned positive value, which means we have fd's that are ready to be handled. Number of events
 	to be handled is _read_count. If the event is coming from the main server socket we know it's a new connection
@@ -148,7 +149,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 
 				try 
 				{
-					int result = conn.parseData(buffer, bytes_read);
+					int result = conn.parseData(buffer, bytes_read, *this);
 					if (result == 2)//both possibly be one if now (result DONE and result ERROR)
 					{
 						// std::string errorResponse = conn.getResponse().toString();
@@ -440,4 +441,23 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 		close (_serverfd[0]);
 		 throw std::runtime_error("Error! epoll_ctl failed");
 	}
+}
+
+std::vector<int> Server::get_open_fds() const
+{
+	std::vector<int> open_fds;
+	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
+	{
+		int client_fd = it->second.getFd();
+        if (client_fd != -1)
+            open_fds.push_back(client_fd);
+	}
+	for (int i = 0; i < 5 && _serverfd[i] != 0; ++i)
+	{
+        open_fds.push_back(_serverfd[i]);
+    }
+	if (_epollfd != -1)
+        open_fds.push_back(_epollfd);
+
+    return open_fds;
 }

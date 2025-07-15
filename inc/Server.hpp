@@ -35,6 +35,7 @@ class Server {
         int start_epoll(std::vector<ServerConfig> servers);
         void startServer(std::vector<ServerConfig> servers);
         int32_t get_networkaddress(std::string host);
+        std::vector<int> get_open_fds() const;
 };
 
 #endif

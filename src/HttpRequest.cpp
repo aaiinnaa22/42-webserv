@@ -358,7 +358,7 @@ void HttpRequest::checkCgiPaths(std::string interpreterPath)
 		throw ErrorResponseException(403);
 }
 
-void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck)
+void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server)
 {
 	std::string pathInfo;
 	pathInfo = getPathInfo(interpreterCheck);
@@ -384,6 +384,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 		close(pipeFd[1]);
 		throw ErrorResponseException(500);
 	}
+	//interpreterPath = "/abcd"; - do this to make execve fail
 	if (pid == 0)
 	{
 		(void)argv;
@@ -392,6 +393,10 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 			_Exit(1);  //ALLOWED??!!
 		close (pipeFd[1]);
 		execve(interpreterPath.c_str(), argv, envp.data());
+		std::cerr << "Execve call fail, cleaning fds...\n";
+		std::vector<int> fds_to_close = server.get_open_fds();
+		for (size_t i = 0; i < fds_to_close.size(); ++i)
+    		close(fds_to_close[i]);
 		_Exit(1);
 	}
 	else
@@ -448,7 +453,7 @@ void HttpRequest::checkQueryString(void)
 	std::cout << "MY PATH AFTER QUERY: " << originalPath << std::endl;
 }
 
-void HttpRequest::doRequest(ServerConfig config)
+void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
 	try
 	{
@@ -472,9 +477,9 @@ void HttpRequest::doRequest(ServerConfig config)
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
 		std::cout << "I PRINT CGI PATHS, PHP: " << currentLocation.cgi_path_php << " AND PYTHON: " << currentLocation.cgi_path_python << std::endl;
 		if (completePath.find(".php") != std::string::npos) //check up, try std::filesystem::path(filename).extension() != ".py")
-			doCgi(currentLocation.cgi_path_php, config, 1);
+			doCgi(currentLocation.cgi_path_php, config, 1, server);
 		else if (completePath.find(".py") != std::string::npos) //check up
-			doCgi(currentLocation.cgi_path_python, config, 2);
+			doCgi(currentLocation.cgi_path_python, config, 2, server);
 		else if (method == "GET" && 
 			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
 			currentLocation.methods.end())

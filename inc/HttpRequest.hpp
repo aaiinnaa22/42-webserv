@@ -44,7 +44,7 @@ class HttpRequest
 		void methodGet();
 		void methodPost();
 		void methodDelete();
-		void doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck);
+		void doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server);
 		void setContentType(int postCheck = 0);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
@@ -75,7 +75,7 @@ class HttpRequest
 		void		setKeepAlive(bool isAlive);
 		void		appendBody(const std::string& data);
 		std::string	getHeader(const std::string& key) const;
-		void		doRequest(ServerConfig config);
+		void		doRequest(ServerConfig config, const Server& server);
 		
 		HttpRequest(int fd);
 		
