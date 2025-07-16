@@ -13,6 +13,7 @@
 #include <signal.h>
 #include "ConfigParse.hpp" //ServerConfig
 #include "ClientConnection.hpp"
+#include "../inc/ErrorResponseException.hpp"
 
 class ClientConnection;
 

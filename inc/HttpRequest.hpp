@@ -1,4 +1,5 @@
 #pragma once
+#include <sys/wait.h> //waitpid
 #include <string>
 #include <sstream>
 #include <map>
@@ -12,7 +13,7 @@
 #include "ErrorResponseException.hpp"
 #include "string" //FOR ENDS_WITH???
 #include <cstdlib>
-#include <sys/wait.h> //waitpid
+
 #include "Server.hpp" //maybe remove
 #include "ClientConnection.hpp"
 
@@ -78,6 +79,7 @@ class HttpRequest
 		void		doRequest(ServerConfig config, const Server& server);
 		
 		HttpRequest(int fd);
+		~HttpRequest() {};
 		
 		void dump() const;
 };

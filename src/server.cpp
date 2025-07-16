@@ -2,6 +2,7 @@
 #include "../inc/HttpRequest.hpp"
 #include "../inc/ConfigParse.hpp"
 #include "../inc/ClientConnection.hpp"
+#include "../inc/ErrorResponseException.hpp"
 #include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
 #include <stdlib.h>
 #include <cstring>
@@ -184,6 +185,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						}
 					}
 			}
+			catch (ChildError)
+			{
+				throw ChildError(500);
+			}
 			catch (std::runtime_error& e) //make into our own exception
 			{
 				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
@@ -303,7 +308,13 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 	{
 		_read_count = epoll_wait(_epollfd, events, 1000, 1000); // returns number of events that are ready to be handled
 		if (_read_count != 0)
+		try{
 			handle_epoll_event(events, servers);
+		}
+		catch (ChildError)
+		{
+			throw ChildError(500);
+		}
 		for (auto it = connections.begin(); it != connections.end(); ) {
 			int fd = it->first;
 			auto& conn = it->second;
@@ -436,7 +447,13 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 	}
 	}
 	int check1 = 0;
+	try{
 	check1 = start_epoll(servers);
+	}
+	catch (ChildError)
+	{
+		throw ChildError(500);
+	}
 	if (check1 < 0){
 		close (_serverfd[0]);
 		 throw std::runtime_error("Error! epoll_ctl failed");

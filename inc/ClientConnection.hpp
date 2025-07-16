@@ -48,6 +48,7 @@ class ClientConnection
 			request(fd), expected_body_len(0),
 			isKeepAlive(true),	bound_servers(servers), selected_server(nullptr), _lastactivity(0)  {}
 		
+		~ClientConnection() {};
 		int getFd() const { return fd; }
 		parseResult parseData(const char* data, size_t len, const Server& server);
 		int	parseRequestLine(std::string& buffer, size_t len);

@@ -14,3 +14,15 @@ int ErrorResponseException::getResponseStatus(void)
 {
 	return (responseStatus);
 }
+
+ChildError::ChildError(int status, std::string message)
+{
+	responseStatus = status;
+	if (!message.empty())
+        std::cout << "Error: " << message << std::endl;
+}
+
+const char *ChildError::what() const noexcept
+{
+	return ("Error occurred in child process\n");
+}

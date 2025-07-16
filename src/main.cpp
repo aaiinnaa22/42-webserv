@@ -1,5 +1,6 @@
 #include "../inc/Server.hpp"
 #include "../inc/ConfigParse.hpp"
+#include "../inc/ErrorResponseException.hpp"
 
 bool gSignalClose = false;
 
@@ -46,6 +47,10 @@ int main(int argc, char **argv)
 			}
 			Server server;
 			server.startServer(servers);
+		}
+		catch (ChildError)
+		{
+			return 1;
 		}
 		catch(std::exception& e){
 			std::cerr << e.what() << std::endl;

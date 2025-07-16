@@ -336,6 +336,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		Response::buildErrorResponse(e.getResponseStatus(), 1, fd);
 		return ERROR;
 	}
+	catch (ChildError)
+	{
+		throw ChildError(500);
+	}
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;

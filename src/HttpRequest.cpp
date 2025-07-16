@@ -120,7 +120,10 @@ void HttpRequest::methodGet(void)
 		responseBody.append(buffer, charsRead);
 	close(fd);
 	if (charsRead == -1) //500?
+	{
+		std::cout << "do we fail from method get??\n";
 		throw ErrorResponseException(500);
+	}
 	setContentType();
 	httpResponse.setResponseBody(responseBody);
 	httpResponse.setStatus(200);
@@ -384,20 +387,29 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 		close(pipeFd[1]);
 		throw ErrorResponseException(500);
 	}
-	//interpreterPath = "/abcd"; - do this to make execve fail
+	interpreterPath = "/abcd"; //- do this to make execve fail
 	if (pid == 0)
 	{
 		(void)argv;
+		(void)server;
+		try{
 		close(pipeFd[0]);
 		if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
-			_Exit(1);  //ALLOWED??!!
+			throw ChildError(500, "dup2");
 		close (pipeFd[1]);
 		execve(interpreterPath.c_str(), argv, envp.data());
 		std::cerr << "Execve call fail, cleaning fds...\n";
-		std::vector<int> fds_to_close = server.get_open_fds();
-		for (size_t i = 0; i < fds_to_close.size(); ++i)
-    		close(fds_to_close[i]);
-		_Exit(1);
+		throw ChildError(500, "execve");
+		
+		// std::vector<int> fds_to_close = server.get_open_fds();
+		// for (size_t i = 0; i < fds_to_close.size(); ++i)
+    	// 	close(fds_to_close[i]);
+		// server.~Server();
+		}
+		catch (ChildError)
+		{
+			throw ChildError(500);
+		}
 	}
 	else
 	{
@@ -498,10 +510,16 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 			//method not allowed
 		}
 	}
+	catch (ChildError)
+	{
+		std::cerr << "do we get here2\n";
+		throw ChildError(500);
+	}
 	catch (ErrorResponseException &e)
 	{
+		std::cout << "do we get here1\n";
 		Response::buildErrorResponse(e.getResponseStatus(), 1, clientfd, errorPages);
-	}
+	} 
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
