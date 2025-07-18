@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-	<meta charset="UTF-8">
-	<title>cgi</title>
+  <title>Fortune Form</title>
 </head>
 <body>
-	<h1>CGI</h1>
+  <h1>Enter your name for a fortune</h1>
+  <form action="/cgi-bin/test.py" method="get">
+    <input type="text" name="name" placeholder="Your name">
+    <input type="submit" value="Get Fortune">
+  </form>
 </body>
-
-
-
 </html>

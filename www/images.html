@@ -1,13 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>images</title>
+  <meta charset="UTF-8">
+  <title>JavaScript Image Slideshow</title>
+  <style>
+    body {
+      background-color: #f0f4f8;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+
+    img {
+      max-width: 90%;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 10px;
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #005fa3;
+    }
+  </style>
 </head>
 <body>
-	<h1>IMAGES</h1>
+
+  <h1>Image Slideshow</h1>
+  <img id="slideshow" src="images/IMG_7857.jpg" alt="Slideshow image">
+  <br>
+  <button onclick="prevImage()">⟵ Previous</button>
+  <button onclick="nextImage()">Next ⟶</button>
+
+  <script>
+    const images = [
+      'images/profile.jpg',
+      'images/IMG_7857.jpg',
+      // Add more image paths as needed
+    ];
+
+    let currentIndex = 0;
+    const slideshow = document.getElementById('slideshow');
+
+    function showImage(index) {
+      slideshow.src = images[index];
+    }
+
+    function nextImage() {
+      currentIndex = (currentIndex + 1) % images.length;
+      showImage(currentIndex);
+    }
+
+    function prevImage() {
+      currentIndex = (currentIndex - 1 + images.length) % images.length;
+      showImage(currentIndex);
+    }
+
+  </script>
+
 </body>
-
-
-
 </html>
