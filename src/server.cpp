@@ -143,7 +143,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cerr << "Failed to recv HTTP message" << std::endl; // send response??
 				continue ;
 			}
-			
+			std::cout << "Buffer (from server loop): " << buffer << std::endl;
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "No parser for fd " << fd << "\n";
