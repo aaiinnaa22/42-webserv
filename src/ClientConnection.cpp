@@ -124,7 +124,7 @@ int	ClientConnection::parseRequestLine(std::string& buffer, size_t len)
 		std::cout << "tst2\n";
 		throw ErrorResponseException(400);
 	}
-	if (path[0] != '/' && path.find("http://") != 0 && path.find("https://") != 0)
+	if (path[0] != '/' && path.find("http://") != 0 && path.find("http:://") != 0)
 	{
 		std::cout << "test3\n";
 		throw ErrorResponseException(400);
@@ -333,6 +333,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (ErrorResponseException &e)
 	{
+		std::cout << "do i go here?\n";
 		Response::buildErrorResponse(e.getResponseStatus(), 1, fd);
 		return ERROR;
 	}

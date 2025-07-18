@@ -103,6 +103,9 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	res.setStatus(statusCode);
 	res.setResponseHeader("content-type", "text/html");
 	
+	std::cout << "build error test\n";
+	std::cout << statusCode << "-what funcrion received\n";
+	std::cout << res.getStatusCode() << "-what is inside response\n";
 	std::string errorFile;
 	if (!errorPages.empty() && errorPages.find(statusCode) != errorPages.end())
 		errorFile = errorPages[statusCode];
@@ -136,7 +139,7 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	}
 	res.setResponseBody(responseBody);
 	std::cout << "what i built in built error response\n";
-	std::cout << res.httpVersion << res.statusCode << std::endl;
+	std::cout << res.httpVersion << " " << res.statusCode << std::endl;
 	//can this send already???
 	if (sendNow)
 		res.sendResponse(clientFd);

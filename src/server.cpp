@@ -76,6 +76,7 @@ int Server::set_non_blocking(int fd)
 void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers)
 {
 	int fd;
+	int testflag = 0;
 	struct epoll_event ev;
     ev.events = EPOLLIN; // | EPOLLET;
 	struct sockaddr_in addr;
@@ -84,6 +85,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	std::cout << "Handling event" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{	
+		testflag = 0;
 		matching_servers.clear(); //clearing for the next loop iteration
 		fd = events[i].data.fd;
 		for(size_t f = 0; f < servers.size(); f++)
@@ -129,9 +131,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
 				std::cout << "New connection ip: " << cip;
 				std::cout << " Port: " << src_port << std::endl;
+				testflag = 1;
 			}
 		}
-		if ((events[i].events & EPOLLIN))
+		if ((events[i].events & EPOLLIN) && testflag == 0)
 		{
 			// std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
@@ -158,16 +161,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						//send(fd, errorResponse.c_str(), errorResponse.size(), 0);
 						// std::cout << errorResponse << " --> response sent\n";
 			
-						// if (!conn.getIsAlive())
-						// {
-						epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-						close(fd);
-						connections.erase(fd);
-						// }
-						// else
-						// {
-						// 	conn.resetState();
-						// }
+						if (!conn.getIsAlive())
+						{
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+							close(fd);
+							connections.erase(fd);
+						}
+						else
+						{
+							conn.resetState();
+						}
 					}
 					else if (result == 1)
 					{
