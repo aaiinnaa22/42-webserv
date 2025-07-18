@@ -387,7 +387,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 		close(pipeFd[1]);
 		throw ErrorResponseException(500);
 	}
-	interpreterPath = "/abcd"; //- do this to make execve fail
+	// interpreterPath = "/abcd"; //- do this to make execve fail
 	if (pid == 0)
 	{
 		(void)argv;
