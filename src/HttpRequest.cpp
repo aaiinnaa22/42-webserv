@@ -356,6 +356,8 @@ std::string HttpRequest::getPathInfo(int interpreterCheck)
 
 void HttpRequest::checkCgiPaths(std::string interpreterPath)
 {
+	if (interpreterPath.empty())
+		throw ErrorResponseException(403);
 	struct stat scriptStat;
 	if (stat(completePath.c_str(), &scriptStat) == -1) //file not exist or stat failed
 		throw ErrorResponseException(404); //NOT ALWAYS
@@ -464,6 +466,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 {
 	std::string pathInfo;
 	ssize_t charsWritten;
+
 	pathInfo = getPathInfo(interpreterCheck);
 	checkCgiPaths(interpreterPath);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
@@ -476,6 +479,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 	};
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
 	
+	//REMOVE THE TEMP FILES AFTER USE??!
 	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (stdinWriteFd == -1)
 		throw ErrorResponseException(500);
@@ -581,6 +585,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 	dump();
 	try
 	{
+		bool cgiFlag = false;
 		if (path.empty())
 		{
 			std::cout << "no path incoming to doRequest...stopping request" << std::endl;
@@ -593,6 +598,8 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		setErrorPages(config.error_pages, config.root);
 		checkQueryString(); //where have it??!!
 		findCurrentLocation(config);
+		if (currentLocation.root == "cgi/bin")
+			cgiFlag = true;
 		makeRootAbsolute(currentLocation.root);
 		urlToRealPath();
 		completePath = currentLocation.root + originalPath;
