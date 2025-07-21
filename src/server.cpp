@@ -98,12 +98,12 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					close(clientfd);
 				}
 				if (set_non_blocking(clientfd) < 0){
-					std::cerr << "Failed to establish connection1" << std::endl;
+					std::cerr << "Failed to establish connection2" << std::endl;
 					close(clientfd);
 				}
 				ev.data.fd = clientfd;
 				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
-					std::cerr << "Failed to establish connection1" << std::endl;
+					std::cerr << "Failed to establish connection3" << std::endl;
 					close(clientfd);
 				}
 				for (size_t j = 0; j < servers.size(); ++j)
@@ -133,7 +133,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
-				std::cerr << "Connection closed" << std::endl; // send response??
+				epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+				close(fd);
+				connections.erase(fd);
+				std::cerr << "Connection closed" << std::endl; // RECV TIMEDOUT SEND CORRET RESPONSE
 				continue ;
 			}	
 			auto it = connections.find(fd);
@@ -207,7 +210,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			}
 			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
 		}
-		if ((events[i].events & EPOLLOUT) && testflag == 0){
+		else if ((events[i].events & EPOLLOUT) && testflag == 0){
 			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDINF MESSAFE NOW" << std::endl;
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
@@ -412,6 +415,14 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 		if (check < 0){
 			close (_serverfd[i]);
 			throw std::runtime_error("Error! Socket is kill");
+		}
+		struct timeval timeout;
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 0;
+		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+		if (check < 0){
+			close (_serverfd[i]);
+			throw std::runtime_error("Error! Failed to create setsockopt");
 		}
 		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
 		if (check < 0){
