@@ -59,6 +59,8 @@ class HttpRequest
 		void checkQueryString(void);
 		std::string getPathInfo(int interpreterCheck);
 		void checkCgiPaths(std::string interpreterPath);
+		void checkContentType(std::string responseContentType);
+		void sendCgiOutput(std::string cgiOutput);
 
 	public:
 		void		parse(const std::string& request);

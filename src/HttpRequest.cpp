@@ -8,6 +8,16 @@
 HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 
 
+void HttpRequest::checkContentType(std::string responseContentType)
+{
+	if (headers.find("accept") != headers.end())
+	{
+		std::string acceptTheseContentTypes = headers.at("accept");
+		if (acceptTheseContentTypes.find(responseContentType) == std::string::npos)
+			throw ErrorResponseException(406);
+	}
+}
+
 void HttpRequest::setContentType(int postCheck)
 {
 	size_t dot;
@@ -20,6 +30,7 @@ void HttpRequest::setContentType(int postCheck)
 	fileExtension = completePath.substr(dot + 1, completePath.length());
 	if (postCheck == 1) //dont allow posting of scripts 
 	{
+		//DOES NOT WORK??!!
 		if (fileExtension != "jpg" && fileExtension != "jpeg" && fileExtension != "png"
 				&& fileExtension != "gif" && fileExtension != "pdf")
 			throw ErrorResponseException(415);
@@ -38,6 +49,7 @@ void HttpRequest::setContentType(int postCheck)
 		responseContentType = "application/pdf";
 	else
 		throw ErrorResponseException(415);
+	checkContentType(responseContentType);
 	httpResponse.setResponseHeader("content-type", responseContentType);
 }
 
@@ -104,6 +116,7 @@ void HttpRequest::methodGet(void)
 		else if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();
+			checkContentType("text/html");
 			httpResponse.setResponseHeader("content-type", "text/html");
 			httpResponse.setStatus(200);
 			httpResponse.sendResponse(clientfd);
@@ -301,7 +314,6 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 		else 
 			header = ""; //??
 		envVariables.push_back("CONTENT_TYPE=" + header);
-		envVariables.push_back("REQUEST_BODY=" + body);
 	}
 	else
 		throw ErrorResponseException(405);
@@ -361,9 +373,97 @@ void HttpRequest::checkCgiPaths(std::string interpreterPath)
 		throw ErrorResponseException(403);
 }
 
+void HttpRequest::sendCgiOutput(std::string cgiOutput)
+{
+	//miniparser for cgioutput
+	std::string cgiBody;
+	std::string cgiHeaders;
+
+	size_t pos = cgiOutput.find("\r\n\r\n");
+	size_t findLen = 4;
+
+	if (pos == std::string::npos) 
+	{
+		pos = cgiOutput.find("\n\n");
+		findLen = 2;
+	}
+	if (pos != std::string::npos)
+		cgiBody = cgiOutput.substr(pos + findLen);
+
+	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
+
+	std::string contentType;
+	std::string contentTypeHeader;
+	std::string contentTypeValue;
+	std::string status;
+	size_t endOfHeader = std::string::npos;
+	int intStatus = -1;
+
+
+	pos = cgiHeaders.find("Status"); //check that the line is correctly formatted? same goes for the other header
+	if (pos != std::string::npos)
+	{
+		if (findLen == 2)
+			endOfHeader = cgiHeaders.find('\n', pos);
+		else if (findLen == 4)
+			endOfHeader = cgiHeaders.find("\r\n", pos);
+		if (endOfHeader != std::string::npos)
+		{
+			status = cgiHeaders.substr(pos, endOfHeader);
+			size_t delimitor = status.find(": ");
+			if (delimitor != std::string::npos)
+			{
+				intStatus = std::atoi(status.substr(delimitor + 2).c_str());
+			}
+		}
+	}
+	if (intStatus == -1)
+		intStatus = 200;
+	if (intStatus != 200)
+		throw ErrorResponseException(intStatus);
+
+	pos = cgiHeaders.find("Content-Type");
+	if (pos != std::string::npos)
+	{
+		if (findLen == 2)
+			endOfHeader = cgiHeaders.find("\n", pos);
+		else if (findLen == 4)
+			endOfHeader = cgiHeaders.find("\r\n", pos);
+		if (endOfHeader != std::string::npos)
+		{
+			contentType = cgiHeaders.substr(pos, endOfHeader);
+			size_t delimitor = contentType.find(":");
+			if (delimitor != std::string::npos)
+			{
+				contentTypeHeader = contentType.substr(0, delimitor);
+				contentTypeValue = contentType.substr(delimitor + 1);
+				if (contentTypeHeader != "Content-Type")
+					;//error
+				for (auto &c : contentTypeHeader)
+					c = tolower(c);
+				for (auto c : contentTypeValue)
+				{
+					if (isspace(c))
+						;//ERROR
+				}
+			}
+		}
+	}
+	//error? in case of npos
+
+	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: " 
+	<< contentTypeHeader << "\nCONTENT TYPE VALUE: " << contentTypeValue << std::endl;
+	checkContentType(contentTypeValue);
+	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
+	httpResponse.setResponseBody(cgiBody);
+	httpResponse.setStatus(200);
+	httpResponse.sendResponse(clientfd);
+}
+
 void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server)
 {
 	std::string pathInfo;
+	ssize_t charsWritten;
 	pathInfo = getPathInfo(interpreterCheck);
 	checkCgiPaths(interpreterPath);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
@@ -375,36 +475,60 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 		nullptr
 	};
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
-	int pipeFd[2];
-
-	if (pipe(pipeFd) == -1)
-		throw ErrorResponseException(500);
 	
-	pid_t pid = fork();
-	if (pid == -1)
+	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if (stdinWriteFd == -1)
+		throw ErrorResponseException(500);
+	charsWritten = write(stdinWriteFd, body.c_str(), body.size());
+	if (charsWritten == -1)
 	{
-		close(pipeFd[0]);
-		close(pipeFd[1]);
+		close(stdinWriteFd);
 		throw ErrorResponseException(500);
 	}
+	close (stdinWriteFd);
+	int stdinFd;
+	int stdoutFd;
+	stdinFd = open("tempStdin", O_RDONLY);
+	if (stdinFd == -1)
+		throw ErrorResponseException(500);
+	stdoutFd = open("tempStdout", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if (stdoutFd == -1)
+	{
+		close(stdinFd);
+		throw ErrorResponseException(500);
+	}
+	pid_t pid = fork();
+	if (pid == -1)
+		throw ErrorResponseException(500);
 	// interpreterPath = "/abcd"; //- do this to make execve fail
 	if (pid == 0)
 	{
 		(void)argv;
 		(void)server;
-		try{
-		close(pipeFd[0]);
-		if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
-			throw ChildError(500, "dup2");
-		close (pipeFd[1]);
-		execve(interpreterPath.c_str(), argv, envp.data());
-		std::cerr << "Execve call fail, cleaning fds...\n";
-		throw ChildError(500, "execve");
-		
-		// std::vector<int> fds_to_close = server.get_open_fds();
-		// for (size_t i = 0; i < fds_to_close.size(); ++i)
-    	// 	close(fds_to_close[i]);
-		// server.~Server();
+		try
+		{
+			if (dup2(stdinFd, STDIN_FILENO) == -1)
+			{
+				close(stdinFd);
+				close(stdoutFd);
+				throw ChildError(500, "dup2");
+			}
+			if (dup2(stdoutFd, STDOUT_FILENO) == -1)
+			{
+				close(stdinFd);
+				close(stdoutFd);
+				throw ChildError(500, "dup2");
+			}
+			close(stdinFd);
+			close(stdoutFd);
+			execve(interpreterPath.c_str(), argv, envp.data());
+			std::cerr << "Execve call fail, cleaning fds...\n";
+			throw ChildError(500, "execve");
+			
+			// std::vector<int> fds_to_close = server.get_open_fds();
+			// for (size_t i = 0; i < fds_to_close.size(); ++i)
+			// 	close(fds_to_close[i]);
+			// server.~Server();
 		}
 		catch (ChildError)
 		{
@@ -413,44 +537,31 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 	}
 	else
 	{
-		close(pipeFd[1]);
-
-		std::string cgiOutput;
-		char buffer[1000];
-		ssize_t charsRead;
-		while ((charsRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
-			cgiOutput.append(buffer, charsRead);
-		if (charsRead == -1)
-		{
-			close(pipeFd[0]);
-			throw ErrorResponseException(500);
-		}
-		
-		close(pipeFd[0]);
-
+		close(stdinFd);
+		close(stdoutFd);
 		int status;
 		if (waitpid(pid, &status, 0) == -1)
 			throw ErrorResponseException(500);
-
 		std::cout << "CHILD STATUS: " << status << std::endl;
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			throw ErrorResponseException(500);
 
-		size_t pos = cgiOutput.find("\r\n\r\n");
-		size_t findLen = 4;
-
-		if (pos == std::string::npos) 
+		int stdoutReadFd = open("tempStdout", O_RDONLY);
+		if (stdoutReadFd == -1)
+			throw ErrorResponseException(500);
+		std::string cgiOutput;
+		char buffer[1000];
+		ssize_t charsRead;
+		//read from stdout
+		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)
+			cgiOutput.append(buffer, charsRead);
+		if (charsRead == -1)
 		{
-			pos = cgiOutput.find("\n\n");
-			findLen = 2;
+			close(stdoutReadFd);
+			throw ErrorResponseException(500);
 		}
-		if (pos != std::string::npos)
-			cgiOutput = cgiOutput.substr(pos + findLen);
-
-		httpResponse.setResponseHeader("content-type", "text/html"); //setContentType(); find it in output headers instead and split cgiOutput to body and headers
-		httpResponse.setResponseBody(cgiOutput);
-		httpResponse.setStatus(200);
-		httpResponse.sendResponse(clientfd);
+		close(stdoutReadFd);
+		sendCgiOutput(cgiOutput);
 	}
 }
 
@@ -467,6 +578,7 @@ void HttpRequest::checkQueryString(void)
 
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
+	dump();
 	try
 	{
 		if (path.empty())
@@ -480,7 +592,6 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
 		checkQueryString(); //where have it??!!
-		//dump();
 		findCurrentLocation(config);
 		makeRootAbsolute(currentLocation.root);
 		urlToRealPath();
