@@ -109,7 +109,7 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 	std::string responseBody;
-	if (completePath.back() == '/' || checkPathIsDirectory() == 1)
+	if (/*completePath.back() == '/' ||*/ checkPathIsDirectory() == 1)
 	{
 		if (!currentLocation.index.empty())
 			completePath = completePath + currentLocation.index;
@@ -144,15 +144,16 @@ void HttpRequest::methodGet(void)
 }
 
 //EPOLL!!!
-void HttpRequest::methodPost(void)
+void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
 {
 	//post a directory?
 	ssize_t charsWritten;
 	int fd;
 
+	//dont allow to post to directory in case of "normal request" (aka not multipart)
 	setContentType(1);
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
-	if (fd == -1) //500
+	if (fd == -1) //500?
 		throw ErrorResponseException(500);
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
@@ -164,9 +165,10 @@ void HttpRequest::methodPost(void)
 
 void HttpRequest::methodDelete(void)
 {
-	//delete a directory?
 	bool removed;
 
+	if (checkPathIsDirectory() == 1 /*|| completePath.back() == '/'*/)
+		throw ErrorResponseException(405); //method not allowed?
 	try 
 	{
 		removed = std::filesystem::remove(completePath);
@@ -290,7 +292,6 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 {
 	std::vector<char *> envp;
 	std::string header;
-
 	envVariables.push_back("REQUEST_METHOD=" + method);
 	envVariables.push_back("SCRIPT_NAME=" + originalPath);
 	envVariables.push_back("SCRIPT_FILENAME=" + completePath);
@@ -464,6 +465,8 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 
 void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server)
 {
+	if (method != "GET" && method != "POST")
+		throw ErrorResponseException(405);
 	std::string pathInfo;
 	ssize_t charsWritten;
 
@@ -576,8 +579,6 @@ void HttpRequest::checkQueryString(void)
 		return ;
 	queryString = originalPath.substr(0 + pos + 1);
 	originalPath = originalPath.substr(0, pos);
-	std::cout << "MY QUERY: " << queryString << std::endl;
-	std::cout << "MY PATH AFTER QUERY: " << originalPath << std::endl;
 }
 
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
@@ -605,7 +606,6 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		completePath = currentLocation.root + originalPath;
 		checkPathIsSafe();
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
-		std::cout << "I PRINT CGI PATHS, PHP: " << currentLocation.cgi_path_php << " AND PYTHON: " << currentLocation.cgi_path_python << std::endl;
 		if (completePath.find(".php") != std::string::npos) //check up, try std::filesystem::path(filename).extension() != ".py")
 			doCgi(currentLocation.cgi_path_php, config, 1, server);
 		else if (completePath.find(".py") != std::string::npos) //check up
