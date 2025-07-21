@@ -99,17 +99,23 @@ Response& ClientConnection::getResponse()
     return response;
 }
 
-int	ClientConnection::parseRequestLine(std::string& buffer, size_t len)
+int	ClientConnection::parseRequestLine(size_t len)
 {
 	(void)len;
-	// std::cout << "request line call\n";
+	// std::cout << "buffer from request line:" << buffer << "--\n";
 	size_t line_end = buffer.find("\r\n");
-	if (line_end == std::string::npos)
-		return INCOMPLETE;
+	// if (line_end == std::string::npos)
+	// 	return INCOMPLETE;
 	std::string request_line = buffer.substr(0, line_end);
 	buffer = buffer.substr(line_end);
+
+	std::cout << "PARSED REQUEST LINE: \"" << request_line << "\"\n";
+
 	if (!is_ascii(request_line))
+	{
+		std::cout << "test 0\n";
 		throw ErrorResponseException(400);
+	}
 	std::istringstream stream(request_line);
 	std::string method, path, version;
 	if (!(stream >> method >> path))
@@ -124,17 +130,17 @@ int	ClientConnection::parseRequestLine(std::string& buffer, size_t len)
 		std::cout << "tst2\n";
 		throw ErrorResponseException(400);
 	}
-	if (path[0] != '/' && path.find("http://") != 0 && path.find("http:://") != 0)
-	{
-		std::cout << "test3\n";
-		throw ErrorResponseException(400);
-	}
 	if (method != "GET" && method != "POST" && method != "DELETE")
 	{
 		std::cout << "test4\n";
 		throw ErrorResponseException(405);
 	}
-	else if (!is_valid_http_version_syntax(version))
+	if (path[0] != '/' && path.find("http://") != 0 && path.find("http:://") != 0)
+	{
+		std::cout << "test3\n";
+		throw ErrorResponseException(400);
+	}
+ 	if (!is_valid_http_version_syntax(version))
 	{
 		std::cout << "test5\n";
 		throw ErrorResponseException(400);
@@ -147,8 +153,6 @@ int	ClientConnection::parseRequestLine(std::string& buffer, size_t len)
 	request.setMethod(method);
 	request.setPath(path);
 	request.setHttpVersion(version);
-	// std::cout << "from request: " << request.getMethod() << " " 
-	// << request.getPath() << " " << request.getHttpVersion() << std::endl;
 	return 0;
 }
 
@@ -164,8 +168,12 @@ int ClientConnection::parseHeaders(std::string buffer)
 		if (line.empty())
 			continue; 
 		size_t colon = line.find(':');
+		std::cout << "line is : " << line << "--end" << std::endl;
 		if (colon == std::string::npos)
+		{
+			std::cout << "test colon\n";
 			throw ErrorResponseException(400);
+		}
 		std::string key = line.substr(0, colon);
 		if (!is_valid_header_key(key))
 		{
@@ -197,8 +205,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			if (state == REQUEST_LINE)
 			{
 				// std::cout << "STATE IS NOW REQUEST_LINE" << std::endl;
-				// std::cout << "buffer: " << buffer << std::endl;
-				parseRequestLine(buffer, len);
+				std::cout << "buffer: " << buffer << std::endl;
+				if (buffer.find("\r\n") == std::string::npos)
+					return INCOMPLETE;
+				parseRequestLine(len);
 				//buffer.erase();
 				// std::cout << "buffer after request line parsing: " << buffer << std::endl;
 				state = HEADERS;
@@ -206,24 +216,24 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			else if (state == HEADERS)
 			{
 				// std::cout << "STATE IS NOW HEADERS\n";
-				// std::cout << "buffer from headers call: " << buffer << std::endl;
+				//std::cout << "buffer from headers call: " << buffer << std::endl;
 				std::string header_buffer;
 				size_t headers_end;
-				if (buffer.empty() || buffer == "\r\n")
+				// if (buffer.empty() || buffer == "\r\n")
+				// {
+				// 	//std::cout << "NO HEADERS!!!\n";
+				// 	return INCOMPLETE;
+				// }
+				// else 
+				// {
+				headers_end = buffer.find("\r\n\r\n");
+				if (headers_end == std::string::npos)
 				{
-					//std::cout << "NO HEADERS!!!\n";
+					// std::cout << "incomplete return from parse headers\n";
 					return INCOMPLETE;
 				}
-				else 
-				{
-					headers_end = buffer.find("\r\n\r\n");
-					if (headers_end == std::string::npos)
-					{
-						// std::cout << "incomplete return from parse headers\n";
-						return INCOMPLETE;
-					}
-					header_buffer = buffer.substr(0, headers_end);
-				}
+				header_buffer = buffer.substr(0, headers_end);
+
 				// std::cout << "we are now parsing headers\n";
 				// std::cout << "header_buffer: " << header_buffer << std::endl;
 				parseHeaders(header_buffer);
@@ -237,10 +247,20 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				}
 				std::string checkHost = request.getHeader("host");
 				if (checkHost.empty())
+				{
+					// std::cerr << "IS THIS THROWING?";
 					throw ErrorResponseException(400);
+				}
+				// std::string method = request.getMethod();
+				// if (method != "GET" && method != "POST" && method != "DELETE")
+				// {
+				// 	std::cout << "test4\n";
+				// 	throw ErrorResponseException(405);
+				// }
 
 				//finding matching server block, moved here from do request
 				selected_server = selectServerByHost(bound_servers, checkHost);
+				//std::cout << "host check: " << request.getHeader("host");
 				if (header_buffer.size() > selected_server->max_client_header_size)
 					throw ErrorResponseException(431);
 				std::string encoding = request.getHeader("transfer-encoding");
@@ -250,7 +270,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				else if (!encoding.empty() && encoding == "chunked")
 				{
 					if (!contentLengthVal.empty())
+					{
+						std::cout << "is this error?\n";
 						throw ErrorResponseException(400);
+					}
 					else
 					{
 						// std::cout << "will be parsing chunked\n";
@@ -263,7 +286,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					// std::cout << "will be parsing normal body\n";
 					expected_body_len = std::stoi(contentLengthVal);
 					if (expected_body_len < 0) 
+					{
+						std::cout << "is this error2?\n";
 						throw ErrorResponseException(400);
+					}
 					// std::cout << "expected body len: " << expected_body_len 
 					// << " and current max client body size\n" << selected_server->max_client_body_size;
 					if (expected_body_len > selected_server->max_client_body_size)
@@ -315,8 +341,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 						buffer.erase(0, chunk_size);
 
 						if (buffer.substr(0, 2) != "\r\n")
+						{
+							std::cout << "boody error\n";
 							throw ErrorResponseException(400);
-
+						}
 						buffer.erase(0, 2);
 						reading_chunk_size = true;
 					}
@@ -327,6 +355,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			{
 				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";			
 				request.doRequest(*selected_server, server);
+				buffer.erase();
 				return DONE;
 			}
 		}
