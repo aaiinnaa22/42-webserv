@@ -82,7 +82,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 	std::vector<ServerConfig> matching_servers;
-	std::cout << "Handling event" << std::endl;
+	//std::cout << "Handling event" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{	
 		testflag = 0;
@@ -168,10 +168,12 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 							close(fd);
 							connections.erase(fd);
+							std::memset(buffer, 0, sizeof(buffer));
 						}
 						else
 						{
 							conn.resetState();
+							std::memset(buffer, 0, sizeof(buffer));
 						}
 					}
 					else if (result == 1)
@@ -183,10 +185,12 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 							if (fd > 0)
 								close(fd);
 							connections.erase(fd);
+							std::memset(buffer, 0, sizeof(buffer));
 						}
 						else
 						{
 							conn.resetState();
+							std::memset(buffer, 0, sizeof(buffer));
 						}
 					}
 			}
@@ -197,6 +201,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			catch (std::runtime_error& e) //make into our own exception
 			{
 				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
+				conn.resetState();
 			}
 			catch (...)//stoi fail in parsing or any other function fails from parseData
 			{
