@@ -118,13 +118,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				if (it != connections.end()) {
 					it->second.setLastActivity();
 				}
-				// for (int o = 0; o < connections.size(); o++) // might be eplosve mine.
-				// {
-				// 	std::cout << "YOLO" << std::endl;
-				// 	if (connections[o].getFd() == clientfd)
-				// 		connections[o].setLastActivity();
-				// }
-				//Just here to print information;
 				uint16_t src_port = ntohs(addr.sin_port);
 				in_addr_t saddr = addr.sin_addr.s_addr;
 				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
@@ -140,10 +133,19 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
-				std::cerr << "Failed to recv HTTP message" << std::endl; // send response??
+				if (errno != EWOULDBLOCK)
+				{
+					std::cerr << "Failed to recv HTTP message" << std::endl;
+					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+					close(fd);
+					connections.erase(fd);
+				}
 				continue ;
 			}
-			
+			if (bytes_read == 0){
+				std::cerr << "Connection closed" << std::endl; // send response??
+				continue ;
+			}	
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "No parser for fd " << fd << "\n";
@@ -201,9 +203,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << "unusual error with parsing" << std::endl;
 				conn.resetState();
 			}
-
 			}
-			// if buffer is empty after recv it means client closed the connection???
 			if (bytes_read == 0) {
                 std::cout << "Connection closed by client: " << fd << std::endl;
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
@@ -211,6 +211,9 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				connections.erase(fd);
 			}
 			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
+		}
+		if ((events[i].events & EPOLLOUT) && testflag == 0){
+			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDINF MESSAFE NOW" << std::endl;
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
 		{
@@ -220,11 +223,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			connections.erase(fd);
 			continue ;
 		}
-		// std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" << std::endl;
-		// for (size_t k = 0; k < connections.size(); k++)
-		// {
-		// 	std::cout << " Current connections" << connections[k].getFd() << std::endl;
-		// }
 	}
 }
 
@@ -463,21 +461,21 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 	}
 }
 
-std::vector<int> Server::get_open_fds() const
-{
-	std::vector<int> open_fds;
-	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
-	{
-		int client_fd = it->second.getFd();
-        if (client_fd != -1)
-            open_fds.push_back(client_fd);
-	}
-	for (int i = 0; i < 5 && _serverfd[i] != 0; ++i)
-	{
-        open_fds.push_back(_serverfd[i]);
-    }
-	if (_epollfd != -1)
-        open_fds.push_back(_epollfd);
+// std::vector<int> Server::get_open_fds() const
+// {
+// 	std::vector<int> open_fds;
+// 	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
+// 	{
+// 		int client_fd = it->second.getFd();
+//         if (client_fd != -1)
+//             open_fds.push_back(client_fd);
+// 	}
+// 	for (int i = 0; i < 5 && _serverfd[i] != 0; ++i)
+// 	{
+//         open_fds.push_back(_serverfd[i]);
+//     }
+// 	if (_epollfd != -1)
+//         open_fds.push_back(_epollfd);
 
-    return open_fds;
-}
+//     return open_fds;
+// }
