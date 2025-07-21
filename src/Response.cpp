@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/11 15:26:37 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/21 13:48:06 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,6 +18,7 @@ const std::unordered_map<int, std::string> Response::reasonPhrases = {
     {400, "Bad Request"},
     {403, "Forbidden"},
     {404, "Not Found"},
+	{406, "Not Acceptable"},
     {405, "Method Not Allowed"},
     {408, "Request Timeout"},
     {409, "Conflict"},
@@ -98,6 +99,7 @@ std::string Response::toString() const
 
 Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd, std::map<int, std::string> errorPages)
 {
+	//WHAT IF text/html is not allowed in request headers???
 	std::cout << "build error response call\n";
 	Response res;
 	res.setStatus(statusCode);
