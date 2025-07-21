@@ -132,16 +132,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			// std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
-			if (bytes_read < 0){
-				if (errno != EWOULDBLOCK)
-				{
-					std::cerr << "Failed to recv HTTP message" << std::endl;
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-					close(fd);
-					connections.erase(fd);
-				}
-				continue ;
-			}
 			if (bytes_read == 0){
 				std::cerr << "Connection closed" << std::endl; // send response??
 				continue ;
