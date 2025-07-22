@@ -123,6 +123,7 @@ void HttpRequest::methodGet(void)
 	std::string responseBody;
 	if (checkPathIsDirectory() == 1)
 	{
+		std::cout << "path is directory in method get" << std::endl; 
 		if (!currentLocation.index.empty())
 			completePath = completePath + currentLocation.index;
 		else if (currentLocation.dir_listing)
@@ -135,7 +136,7 @@ void HttpRequest::methodGet(void)
 			return ;
 		}
 		else
-			ErrorResponseException(403);
+			throw ErrorResponseException(403);
 	}
 
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
@@ -285,7 +286,9 @@ void HttpRequest::decodeUrl(std::string& decodeThis)
 		if (decodeThis[i] == '%')
 		{
 			if (i + 2 >= decodeThis.length())
+			{
 				; //throw??
+			}
 			char first = decodeThis[i + 1];
 			char second = decodeThis[i + 2];
 			decoded += (hexToChar(first) << 4) | hexToChar(second);
@@ -373,6 +376,8 @@ struct stat HttpRequest::safeStat(std::string statThis)
 			throw ErrorResponseException(404);
 		if (errno == EACCES)
 			throw ErrorResponseException(403);
+		if (errno == ENAMETOOLONG)
+			throw ErrorResponseException(414);
 		else
 		{
 			std::cout << "ERRROOOOORR: " << strerror(errno) << std::endl;
@@ -455,16 +460,16 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 			if (delimitor != std::string::npos)
 			{
 				contentTypeHeader = contentType.substr(0, delimitor);
-				contentTypeValue = contentType.substr(delimitor + 1);
+				contentTypeValue = contentType.substr(delimitor + 2);
 				if (contentTypeHeader != "Content-Type")
+				{
 					;//error
+				}
 				for (auto &c : contentTypeHeader)
 					c = tolower(c);
-				for (auto c : contentTypeValue)
-				{
-					if (isspace(c))
-						;//ERROR
-				}
+				contentTypeValue.erase(
+    			std::remove_if(contentTypeValue.begin(), contentTypeValue.end(), [](unsigned char c) {
+        			return std::isspace(c);}), contentTypeValue.end());
 			}
 		}
 	}
@@ -472,6 +477,7 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 
 	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: " 
 	<< contentTypeHeader << "\nCONTENT TYPE VALUE: " << contentTypeValue << std::endl;
+	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(contentTypeValue);
 	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
 	httpResponse.setResponseBody(cgiBody);
@@ -559,7 +565,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 			// 	close(fds_to_close[i]);
 			// server.~Server();
 		}
-		catch (ChildError)
+		catch (ChildError& e)
 		{
 			throw ChildError(500);
 		}
@@ -621,7 +627,6 @@ std::string HttpRequest::checkRequestIsCgi(void)
 		std::string pathToTry = completePath.substr(0, pos);
 		try 
 		{
-			std::cout << "time to check cgi path" << std::endl;
 			checkCgiPath(pathToTry);
 		}
 		catch (ErrorResponseException& e)
@@ -643,7 +648,7 @@ std::string HttpRequest::checkRequestIsCgi(void)
 			cgiExtension = ".php";
 			break ;
 		}
-		pos = completePath.rfind('/', pos -1);
+		pos = completePath.rfind('/', pos -1); //size_t can become huge in case of negative value!!!
 	}
 	if (isCgi == false)
 		return ("");
@@ -654,8 +659,26 @@ std::string HttpRequest::checkRequestIsCgi(void)
 	return ("");
 }
 
+void HttpRequest::sendRedirection(void)
+{
+	std::cout << "HELLO FROM SEND_REDIRECTION" << std::endl;
+	//what if no location? or location but no redirect code?
+	if (originalPath.starts_with(currentLocation.path))
+		originalPath.erase(0, currentLocation.path.size());
+	std::string newPath = currentLocation.redirect_target + originalPath;
+	std::cout << "NEW PATH :" << newPath << std::endl;
+	std::cout << "STATUS: " << currentLocation.redirect_code << std::endl;
+	httpResponse.setResponseHeader("location", newPath);
+	httpResponse.setStatus(currentLocation.redirect_code);
+	httpResponse.sendResponse(clientfd);
+}
+
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
+	//TRY OUT!
+	//INCOMING PATH: /grr/
+	//COMPLETE PATH: /home/aalbrech/aina_gits/42-webserv/aina_website/grr/grr/
+
 	dump();
 	try
 	{
@@ -669,9 +692,16 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		path.clear();
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
+		findCurrentLocation(config);
+		std::cout << "REDIR CODE: " << currentLocation.redirect_code << std::endl;
+		std::cout << "REDIR PATH: " << currentLocation.redirect_target << std::endl;
+		if (currentLocation.redirect_code != -1)
+		{
+				sendRedirection();
+				return ;
+		}
 		decodeUrl(originalPath);
 		checkQueryString(); //where have it??!!
-		findCurrentLocation(config);
 		makeRootAbsolute(currentLocation.root);
 		completePath = currentLocation.root + originalPath;
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
@@ -682,10 +712,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		{
 			std::string contentTypeValue = headers.at("content-type");
 			if (contentTypeValue.find("application/x-www-form-urlencoded") != std::string::npos)
-			{
 				decodeUrl(body);
-			}
-
 		}
 		std::string cgiExtension = checkRequestIsCgi();
 		if (cgiExtension != "")
@@ -702,7 +729,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		else
 			Response::buildErrorResponse(405, 1, clientfd, errorPages);
 	}
-	catch (ChildError)
+	catch (ChildError& e)
 	{
 		std::cerr << "do we get here2\n";
 		throw ChildError(500);
@@ -710,6 +737,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 	catch (ErrorResponseException &e)
 	{
 		std::cout << "do we get here1\n";
+		std::cout << "ERROR CATCHED, ERRNO: " << strerror(errno) << std::endl;
 		Response::buildErrorResponse(e.getResponseStatus(), 1, clientfd, errorPages);
 	} 
 	catch (std::exception& e)

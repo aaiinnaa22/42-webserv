@@ -26,7 +26,7 @@ class ClientConnection
         	READ_CHUNK_CRLF
 		};
 		HttpRequest request;
-		size_t expected_body_len;
+		int expected_body_len;
 		bool isKeepAlive;
 		bool reading_chunk_size;
 		int chunk_size;

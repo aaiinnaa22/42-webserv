@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/21 13:48:06 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/22 19:32:03 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,11 @@ const std::unordered_map<int, std::string> Response::reasonPhrases = {
     {415, "Unsupported Media Type"},
     {418, "I'm a teapot"},
     {431, "Request Header Fields Too Large"},
+	{301, "Moved Permanently"},
+	{302, "Found"},
+	{303, "See Other"},
+	{307, "Temporary Redirect"},
+	{308, "Permanent Redirect"},
     {500, "Internal Server Error"},
     {501, "Not Implemented"},
     {503, "Service Unavailable"},
@@ -163,17 +168,20 @@ void Response::sendResponse(int clientFd)
 		responseHeaders += "Content-Type: " + getHeader("content-type") + "\r\n" +
 						"Content-Length: " + contentLength + "\r\n";
 	}
-	//if (statusCode == 400)
-	//	responseHeaders += std::string("Connection: close") + "\r\n";
+	if (statusCode > 299 && statusCode < 400)
+		responseHeaders += "Location: " + getHeader("location") + "\r\n";	
+	
+	
+	//responseHeaders += std::string("Connection: close") + "\r\n";
 	responseHeaders += "\r\n";
-
+	
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);
 	if (sending == -1)
 	{
 		std::cout << "SEND FAILED" << std::endl;
 		throw std::runtime_error("");
 	}
-	if (statusCode != 204)
+	if (statusCode != 204 && (statusCode < 300 || statusCode > 399))
 	{
 		sending = send(clientFd, body.c_str(), body.size(), MSG_NOSIGNAL);
 		if (sending == -1)

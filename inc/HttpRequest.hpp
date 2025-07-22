@@ -64,6 +64,7 @@ class HttpRequest
 		void checkMethodAllowed();
 		std::string checkRequestIsCgi(void);
 		struct stat safeStat(std::string statThis);
+		void sendRedirection(void);
 
 	public:
 		void		parse(const std::string& request);
