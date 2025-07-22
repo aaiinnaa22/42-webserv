@@ -26,11 +26,10 @@ void HttpRequest::checkContentType(std::string responseContentType)
 			if (acceptTheseContentTypes.find(wildCard) != std::string::npos)
 				return ;
 		}
-		 
 		if (acceptTheseContentTypes.find(responseContentType) != std::string::npos)
 			return ;
+		throw ErrorResponseException(406);
 	}
-	throw ErrorResponseException(406);
 }
 
 void HttpRequest::setContentType(int postCheck)
@@ -111,9 +110,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 
 int HttpRequest::checkPathIsDirectory(void)
 {
-	struct stat path_stat;
-	if (stat(completePath.c_str(), &path_stat) != 0)
-		throw ErrorResponseException(404);
+	struct stat path_stat = safeStat(completePath);
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -124,7 +121,7 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 	std::string responseBody;
-	if (/*completePath.back() == '/' ||*/ checkPathIsDirectory() == 1)
+	if (checkPathIsDirectory() == 1)
 	{
 		if (!currentLocation.index.empty())
 			completePath = completePath + currentLocation.index;
@@ -182,7 +179,7 @@ void HttpRequest::methodDelete(void)
 {
 	bool removed;
 
-	if (checkPathIsDirectory() == 1 /*|| completePath.back() == '/'*/)
+	if (checkPathIsDirectory() == 1)
 		throw ErrorResponseException(405); //method not allowed?
 	try 
 	{
@@ -279,28 +276,28 @@ char HttpRequest::hexToChar(char c)
 	return (0);
 }
 
-void HttpRequest::urlToRealPath(void)
+void HttpRequest::decodeUrl(std::string& decodeThis)
 {
-	std::string realPath;
+	std::string decoded;
 
-	for (size_t i = 0; i < originalPath.length(); ++i)
+	for (size_t i = 0; i < decodeThis.length(); ++i)
 	{
-		if (originalPath[i] == '%')
+		if (decodeThis[i] == '%')
 		{
-			if (i + 2 >= originalPath.length())
+			if (i + 2 >= decodeThis.length())
 				; //throw??
-			char first = originalPath[i + 1];
-			char second = originalPath[i + 2];
-			realPath += (hexToChar(first) << 4) | hexToChar(second);
+			char first = decodeThis[i + 1];
+			char second = decodeThis[i + 2];
+			decoded += (hexToChar(first) << 4) | hexToChar(second);
 			i += 2;
 		}
-		else if (originalPath[i] == '+')
-			realPath += " ";
+		else if (decodeThis[i] == '+') //???
+			decoded += " ";
 		else 
-			realPath += originalPath[i];
+			decoded += decodeThis[i];
 		
 	}
-	originalPath = realPath;
+	decodeThis = decoded;
 }
 
 std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pathInfo)
@@ -367,11 +364,28 @@ std::string HttpRequest::getPathInfo(std::string cgiExtension)
 	return (pathInfo);
 }
 
+struct stat HttpRequest::safeStat(std::string statThis)
+{
+	struct stat st;
+	if (stat(statThis.c_str(), &st) == -1)
+	{
+		if (errno == ENOENT || errno == ENOTDIR)
+			throw ErrorResponseException(404);
+		if (errno == EACCES)
+			throw ErrorResponseException(403);
+		else
+		{
+			std::cout << "ERRROOOOORR: " << strerror(errno) << std::endl;
+			throw ErrorResponseException(500);
+		}
+	}
+	return (st);
+}
+
 void HttpRequest::checkCgiPath(std::string checkThisPath)
 {
 	struct stat pathStat;
-	if (stat(checkThisPath.c_str(), &pathStat) == -1) //file not exist or stat failed
-		throw ErrorResponseException(404); //NOT ALWAYS
+	pathStat = safeStat(checkThisPath);
 	if (!S_ISREG(pathStat.st_mode))
 		throw ErrorResponseException(404);
 	if (access(checkThisPath.c_str(), X_OK) == -1)
@@ -612,6 +626,8 @@ std::string HttpRequest::checkRequestIsCgi(void)
 		}
 		catch (ErrorResponseException& e)
 		{
+			if (e.getResponseStatus() == 500)
+				throw ErrorResponseException(500);
 			pos = completePath.rfind('/', pos -1);
 			continue ;
 		}
@@ -653,14 +669,24 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		path.clear();
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
+		decodeUrl(originalPath);
 		checkQueryString(); //where have it??!!
 		findCurrentLocation(config);
 		makeRootAbsolute(currentLocation.root);
-		urlToRealPath();
 		completePath = currentLocation.root + originalPath;
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
+		std::cout << "QUERY STRING: " << queryString << std::endl;
 		checkPathIsSafe();
 		checkMethodAllowed();
+		if (headers.find("content-type") != headers.end())
+		{
+			std::string contentTypeValue = headers.at("content-type");
+			if (contentTypeValue.find("application/x-www-form-urlencoded") != std::string::npos)
+			{
+				decodeUrl(body);
+			}
+
+		}
 		std::string cgiExtension = checkRequestIsCgi();
 		if (cgiExtension != "")
 		{

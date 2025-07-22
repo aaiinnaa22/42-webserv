@@ -53,7 +53,7 @@ class HttpRequest
 		void checkPathIsSafe(void);
 		void makeRootAbsolute(std::string& myRoot);
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
-		void urlToRealPath(void);
+		void decodeUrl(std::string& decodeThis);
 		char hexToChar(char c);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);
@@ -63,6 +63,7 @@ class HttpRequest
 		void sendCgiOutput(std::string cgiOutput);
 		void checkMethodAllowed();
 		std::string checkRequestIsCgi(void);
+		struct stat safeStat(std::string statThis);
 
 	public:
 		void		parse(const std::string& request);
