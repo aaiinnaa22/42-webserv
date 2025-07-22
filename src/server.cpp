@@ -130,7 +130,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		if ((events[i].events & EPOLLIN) && testflag == 0)
 		{
 			// std::cout << "Do we get here?"<< std::endl;
-			char buffer[1024] = {0};
+			char buffer[100] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
 				std::cerr << "Connection closed" << std::endl; // send response??
@@ -145,6 +145,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 
 				try 
 				{
+					//std::cout << "buffer before parsing call: --" << buffer << "--\n";
 					int result = conn.parseData(buffer, bytes_read, *this);
 					if (result == 2)//both possibly be one if now (result DONE and result ERROR)
 					{

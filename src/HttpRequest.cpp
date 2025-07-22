@@ -578,7 +578,7 @@ void HttpRequest::checkQueryString(void)
 
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
-	dump();
+	//dump();
 	try
 	{
 		if (path.empty())
@@ -715,7 +715,6 @@ void HttpRequest::dump() const {
     for (const auto& [key, value] : headers) {
         std::cout << "  " << key << ": " << value << "\n";
     }
-    std::cout << "Body:\n" << body << "\n";
 	std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
 }
 

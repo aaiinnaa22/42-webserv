@@ -27,6 +27,8 @@ class ClientConnection
 		};
 		HttpRequest request;
 		size_t expected_body_len;
+		std::string boundary;
+		bool isMultipart;
 		bool isKeepAlive;
 		bool reading_chunk_size;
 		int chunk_size;
@@ -53,6 +55,7 @@ class ClientConnection
 		parseResult parseData(const char* data, size_t len, const Server& server);
 		int	parseRequestLine(size_t len);
 		int parseHeaders(std::string buffer);
+		void parseMultipartBody(const std::string& body, const std::string& boundary);
 		bool getIsAlive() const { return isKeepAlive; }
 		void resetState();
 

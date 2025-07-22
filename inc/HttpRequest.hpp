@@ -34,6 +34,7 @@ class HttpRequest
 		//std::string responseBody;
 		//std::string responseContentType;
 		std::map<int, std::string> errorPages;
+
 		int clientfd;
 		LocationConfig currentLocation;
 		std::string originalPath;
@@ -69,6 +70,8 @@ class HttpRequest
 		std::string	getPath() const;
 		std::string	getHttpVersion();
 		std::string getBody();
+		std::map<std::string, std::string> bodyHeaders;
+		std::map<std::string, std::string> formFields;
 		const std::map<std::string, std::string>& getHeaders() const;
 		void 		setMethod(const std::string& m);
     	void 		setPath(const std::string& p);

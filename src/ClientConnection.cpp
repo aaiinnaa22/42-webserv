@@ -168,7 +168,7 @@ int ClientConnection::parseHeaders(std::string buffer)
 		if (line.empty())
 			continue; 
 		size_t colon = line.find(':');
-		std::cout << "line is : " << line << "--end" << std::endl;
+		//std::cout << "line is : " << line << "--end" << std::endl;
 		if (colon == std::string::npos)
 		{
 			std::cout << "test colon\n";
@@ -191,6 +191,116 @@ int ClientConnection::parseHeaders(std::string buffer)
     // 	std::cout << header.first << ": " << header.second << std::endl;
 	// }
 	return 0;
+}
+
+void ClientConnection::parseMultipartBody(const std::string& body, const std::string& boundary) 
+{
+    std::string boundary_marker = "--" + boundary;
+    std::string closing_boundary = boundary_marker + "--";
+
+	size_t pos = 0;
+    int part_count = 0;
+    while ((pos = body.find(boundary_marker, pos)) != std::string::npos)
+    {
+        if (body.compare(pos, closing_boundary.length(), closing_boundary) == 0)
+            break; // closing boundary found
+        ++part_count;
+        pos += boundary_marker.length();
+    }
+
+    if (part_count > 1)
+        throw ErrorResponseException(501); // Only single part supported
+
+    // Now parse single part
+    size_t part_start = body.find(boundary_marker + "\r\n");
+    if (part_start == std::string::npos)
+        throw ErrorResponseException(400);
+    part_start += boundary_marker.length() + 2;
+
+    size_t part_end = body.find(closing_boundary, part_start);
+    if (part_end == std::string::npos)
+        throw ErrorResponseException(400);
+
+    std::string part = body.substr(part_start, part_end - part_start);
+
+    size_t header_end = part.find("\r\n\r\n");
+    if (header_end == std::string::npos)
+        throw ErrorResponseException(400);
+
+    std::string header_section = part.substr(0, header_end);
+    std::string content = part.substr(header_end + 4);
+
+	//std::cout << "header_section: " << header_section << std::endl;
+	//std::cout << "content: " << content << std::endl;
+	request.setBody(content);
+    std::istringstream headers_stream(header_section);
+    std::string line;
+	while (std::getline(headers_stream, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        if (line.empty())
+            continue;
+        if (line.find("Content-Disposition:") == 0)
+        {
+            size_t colon = line.find(":");
+            std::string value = line.substr(colon + 1);
+            value.erase(0, value.find_first_not_of(" \t")); 
+
+            size_t semi = value.find(";");
+            std::string dispositionType = (semi == std::string::npos) ? value : value.substr(0, semi);
+            std::string paramsPart = (semi == std::string::npos) ? "" : value.substr(semi + 1);
+
+            request.bodyHeaders["Content-Disposition"] = dispositionType;
+
+            std::istringstream paramStream(paramsPart);
+            std::string param;
+            while (std::getline(paramStream, param, ';'))
+            {
+                size_t eq = param.find('=');
+                if (eq != std::string::npos)
+                {
+                    std::string key = param.substr(0, eq);
+                    std::string val = param.substr(eq + 1);
+
+                    // Trim spaces
+                    key.erase(0, key.find_first_not_of(" \t"));
+                    key.erase(key.find_last_not_of(" \t") + 1);
+
+                    val.erase(0, val.find_first_not_of(" \t"));
+                    val.erase(val.find_last_not_of(" \t") + 1);
+
+                    if (!val.empty() && val.front() == '"' && val.back() == '"')
+                        val = val.substr(1, val.size() - 2);
+
+                    request.formFields[key] = val;
+                }
+            }
+        }
+        else
+        {
+            size_t colon = line.find(":");
+            if (colon != std::string::npos)
+            {
+                std::string key = line.substr(0, colon);
+                std::string val = line.substr(colon + 1);
+
+                key.erase(key.find_last_not_of(" \t") + 1);
+                val.erase(0, val.find_first_not_of(" \t"));
+                val.erase(val.find_last_not_of(" \t") + 1);
+
+                request.bodyHeaders[key] = val;
+            }
+        }
+    }
+
+    std::cout << "\nParsed Body Headers Map:\n";
+    for (const auto& kv : request.bodyHeaders)
+        std::cout << kv.first << ": " << kv.second << "\n";
+
+    std::cout << "\nParsed Content-Disposition Params:\n";
+    for (const auto& kv : request.formFields)
+        std::cout << kv.first << ": " << kv.second << "\n";
 }
 
 ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len, const Server& server)
@@ -295,6 +405,15 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					if (expected_body_len > selected_server->max_client_body_size)
 						throw ErrorResponseException(413);
 					state = BODY;
+					std::string contentType = request.getHeader("content-type");
+					if (contentType.find("multipart/form-data") != std::string::npos) 
+					{
+						size_t boundary_pos = contentType.find("boundary=");
+						if (boundary_pos == std::string::npos)
+							throw ErrorResponseException(400);
+						boundary = contentType.substr(boundary_pos + 9);
+    					isMultipart = true;
+					}
 				}
 				else
 					state = COMPLETE;
@@ -304,8 +423,16 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				// std::cout << "body magic\n";
 				if (buffer.size() < expected_body_len)
 					return INCOMPLETE;
-				request.setBody(buffer.substr(0, expected_body_len));
+				if (isMultipart)
+				{
+    				parseMultipartBody(buffer.substr(0, expected_body_len), boundary);
+					isMultipart = false;
+				}
+				else
+					request.setBody(buffer.substr(0, expected_body_len));
+			
 				buffer.erase(0, expected_body_len);
+
 				state = COMPLETE;
 			}
 			if (state == CHUNKED_BODY)
