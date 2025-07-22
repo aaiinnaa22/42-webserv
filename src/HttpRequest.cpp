@@ -304,7 +304,6 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 		envVariables.push_back("QUERY_STRING=" + queryString);
 	else if (method == "POST")
 	{
-		//what if none?
 		if (headers.find("content-length") != headers.end())
 			header = headers.at("content-length");
 		else
@@ -313,11 +312,9 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 		if (headers.find("content-type") != headers.end())
 			header = headers.at("content-type");
 		else 
-			header = ""; //??
+			header = "";
 		envVariables.push_back("CONTENT_TYPE=" + header);
 	}
-	else
-		throw ErrorResponseException(405);
 	for (size_t i = 0; i < envVariables.size(); ++i)
 	{
 		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
@@ -327,17 +324,17 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	return (envp);
 }
 
-std::string HttpRequest::getPathInfo(int interpreterCheck)
+std::string HttpRequest::getPathInfo(std::string cgiExtension)
 {
 	std::string pathInfo;
 	int lenOfPos = 0;
 	size_t posOfPathInfo = std::string::npos;
-	if (interpreterCheck == 1)
+	if (cgiExtension == ".php")
 	{
 		posOfPathInfo = completePath.find(".php");
 		lenOfPos = 4;
 	}
-	else if (interpreterCheck == 2)
+	else if (cgiExtension == ".py")
 	{
 		posOfPathInfo = completePath.find(".py");
 		lenOfPos = 3;
@@ -355,24 +352,14 @@ std::string HttpRequest::getPathInfo(int interpreterCheck)
 	return (pathInfo);
 }
 
-void HttpRequest::checkCgiPaths(std::string interpreterPath)
+void HttpRequest::checkCgiPath(std::string checkThisPath)
 {
-	if (interpreterPath.empty())
-		throw ErrorResponseException(403);
-	struct stat scriptStat;
-	if (stat(completePath.c_str(), &scriptStat) == -1) //file not exist or stat failed
+	struct stat pathStat;
+	if (stat(checkThisPath.c_str(), &pathStat) == -1) //file not exist or stat failed
 		throw ErrorResponseException(404); //NOT ALWAYS
-	if (!S_ISREG(scriptStat.st_mode))
+	if (!S_ISREG(pathStat.st_mode))
 		throw ErrorResponseException(404);
-	if (access(completePath.c_str(), X_OK) == -1)
-		throw ErrorResponseException(403); 
-
-	struct stat interpreterStat;
-	if (stat(interpreterPath.c_str(), &interpreterStat) == -1)
-    	throw ErrorResponseException(404);
-	if (!S_ISREG(interpreterStat.st_mode))
-    	throw ErrorResponseException(404);
-	if (access(interpreterPath.c_str(), X_OK) == -1)
+	if (access(checkThisPath.c_str(), X_OK) == -1)
 		throw ErrorResponseException(403);
 }
 
@@ -463,15 +450,21 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	httpResponse.sendResponse(clientfd);
 }
 
-void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server)
+void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Server& server)
 {
 	if (method != "GET" && method != "POST")
 		throw ErrorResponseException(405);
+
 	std::string pathInfo;
 	ssize_t charsWritten;
+	std::string interpreterPath;
+	if (cgiExtension == ".py")
+		interpreterPath = currentLocation.cgi_path_python;
+	else if (cgiExtension == ".php")
+		interpreterPath = currentLocation.cgi_path_php; 
 
-	pathInfo = getPathInfo(interpreterCheck);
-	checkCgiPaths(interpreterPath);
+	checkCgiPath(interpreterPath);
+	pathInfo = getPathInfo(cgiExtension);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
 	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
 	char *argv[] =
@@ -581,12 +574,60 @@ void HttpRequest::checkQueryString(void)
 	originalPath = originalPath.substr(0, pos);
 }
 
+void HttpRequest::checkMethodAllowed()
+{
+	if (std::find(currentLocation.methods.begin(), currentLocation.methods.end(), method) != 
+			currentLocation.methods.end())
+		return ;
+	throw ErrorResponseException(405);
+}
+
+std::string HttpRequest::checkRequestIsCgi(void)
+{	
+	size_t pos = completePath.size();
+	bool isCgi = false;
+	std::string cgiExtension;
+	while (pos > 0)
+	{
+		std::string pathToTry = completePath.substr(0, pos);
+		try 
+		{
+			std::cout << "time to check cgi path" << std::endl;
+			checkCgiPath(pathToTry);
+		}
+		catch (ErrorResponseException& e)
+		{
+			pos = completePath.rfind('/', pos -1);
+			continue ;
+		}
+		if (pathToTry.ends_with(".py"))
+		{
+			isCgi = true;
+			cgiExtension = ".py";
+			break ;
+		}
+		else if (pathToTry.ends_with(".php"))
+		{
+			isCgi = true;
+			cgiExtension = ".php";
+			break ;
+		}
+		pos = completePath.rfind('/', pos -1);
+	}
+	if (isCgi == false)
+		return ("");
+	if (cgiExtension == ".py" && !currentLocation.cgi_path_python.empty())
+		return (cgiExtension);
+	if (cgiExtension == ".php" && !currentLocation.cgi_path_php.empty())
+		return (cgiExtension);
+	return ("");
+}
+
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
 	dump();
 	try
 	{
-		bool cgiFlag = false;
 		if (path.empty())
 		{
 			std::cout << "no path incoming to doRequest...stopping request" << std::endl;
@@ -599,34 +640,26 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		setErrorPages(config.error_pages, config.root);
 		checkQueryString(); //where have it??!!
 		findCurrentLocation(config);
-		if (currentLocation.root == "cgi/bin")
-			cgiFlag = true;
 		makeRootAbsolute(currentLocation.root);
 		urlToRealPath();
 		completePath = currentLocation.root + originalPath;
-		checkPathIsSafe();
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
-		if (completePath.find(".php") != std::string::npos) //check up, try std::filesystem::path(filename).extension() != ".py")
-			doCgi(currentLocation.cgi_path_php, config, 1, server);
-		else if (completePath.find(".py") != std::string::npos) //check up
-			doCgi(currentLocation.cgi_path_python, config, 2, server);
-		else if (method == "GET" && 
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
-			currentLocation.methods.end())
+		checkPathIsSafe();
+		checkMethodAllowed();
+		std::string cgiExtension = checkRequestIsCgi();
+		if (cgiExtension != "")
+		{
+			std::cout << "WE ARE DOING CGI NOW!" << std::endl;
+			doCgi(config, cgiExtension, server);
+		}
+		else if (method == "GET")
 			methodGet();
-		else if (method == "POST" &&
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "POST") != 
-			currentLocation.methods.end())
+		else if (method == "POST")
 			methodPost();
-		else if (method == "DELETE" &&
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "DELETE") != 
-			currentLocation.methods.end())
+		else if (method == "DELETE")
 			methodDelete();
 		else
-		{
 			Response::buildErrorResponse(405, 1, clientfd, errorPages);
-			//method not allowed
-		}
 	}
 	catch (ChildError)
 	{

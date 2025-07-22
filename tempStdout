@@ -1,8 +1,8 @@
-Status: 418
+Status: 200
 Content-Type: text/html
 
 <html><body>
-<h1>Hello, Aina!</h1>
+<h1>Hello, Guest!</h1>
 <p>Your fortune for today:</p>
-<blockquote>You will have a great day!</blockquote>
+<blockquote>Today is a perfect day to learn something new.</blockquote>
 </body></html>
