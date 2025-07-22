@@ -36,6 +36,7 @@ class ClientConnection
 		const ServerConfig* selected_server;
 		Response response;
 		int _lastactivity;
+		static const size_t MAX_URI_LENGTH = 4096;
 	public:
 		enum parseResult
 		{

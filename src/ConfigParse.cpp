@@ -184,15 +184,15 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "max_client_body_size");
 		if (!value.empty())
 		{
-			s1.max_client_body_size = std::stoi(value);//TODO: check
-			//std::cout << s1.max_client_body_size << "-->body size from struct\n";
+			s1.max_client_body_size = std::stoi(value);//TODO: check	
 		}
+		// std::cout << s1.max_client_body_size << "-->body size from struct\n";
 		value = extractConfig(line, "max_client_header_size");
 		if (!value.empty())
 		{
 			s1.max_client_header_size = std::stoi(value);//TODO: check
-			//std::cout << s1.max_client_header_size << "-->header size from struct\n";
 		}
+		// std::cout << s1.max_client_header_size << "-->header size from struct\n";
 		value = extractConfig(line, "root");
 		if (!value.empty())
 		{

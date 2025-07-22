@@ -25,6 +25,7 @@ struct LocationConfig
 struct ServerConfig
 {
 	int	listen_port = 0;
+	size_t	max_uri_size = 8192;
 	size_t	max_client_body_size = 1048576; //1MB
 	size_t	max_client_header_size = 8192;
 	std::string host = "";

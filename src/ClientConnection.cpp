@@ -140,6 +140,10 @@ int	ClientConnection::parseRequestLine(size_t len)
 		std::cout << "test3\n";
 		throw ErrorResponseException(400);
 	}
+	if (path.size() > MAX_URI_LENGTH)
+	{
+		throw ErrorResponseException(414); //SHOULD CLOSE
+	}
  	if (!is_valid_http_version_syntax(version))
 	{
 		std::cout << "test5\n";
@@ -148,7 +152,7 @@ int	ClientConnection::parseRequestLine(size_t len)
 	if (version != "HTTP/1.1")
 	{
 		std::cout << "test6\n";
-		throw ErrorResponseException(505);
+		throw ErrorResponseException(505);// SHOULD CLOSE
 	}
 	request.setMethod(method);
 	request.setPath(path);
@@ -203,15 +207,13 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
     while ((pos = body.find(boundary_marker, pos)) != std::string::npos)
     {
         if (body.compare(pos, closing_boundary.length(), closing_boundary) == 0)
-            break; // closing boundary found
+            break;
         ++part_count;
         pos += boundary_marker.length();
     }
-
     if (part_count > 1)
-        throw ErrorResponseException(501); // Only single part supported
-
-    // Now parse single part
+        throw ErrorResponseException(501);
+	
     size_t part_start = body.find(boundary_marker + "\r\n");
     if (part_start == std::string::npos)
         throw ErrorResponseException(400);
@@ -263,7 +265,6 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
                     std::string key = param.substr(0, eq);
                     std::string val = param.substr(eq + 1);
 
-                    // Trim spaces
                     key.erase(0, key.find_first_not_of(" \t"));
                     key.erase(key.find_last_not_of(" \t") + 1);
 
@@ -371,8 +372,9 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				//finding matching server block, moved here from do request
 				selected_server = selectServerByHost(bound_servers, checkHost);
 				//std::cout << "host check: " << request.getHeader("host");
+				//std::cout << "send header size: " << header_buffer.size() << " and limit: " << selected_server->max_client_header_size << std::endl;
 				if (header_buffer.size() > selected_server->max_client_header_size)
-					throw ErrorResponseException(431);
+					throw ErrorResponseException(431); //SHOULD CLOSE
 				std::string encoding = request.getHeader("transfer-encoding");
 				std::string contentLengthVal = request.getHeader("content-length");
 				if (!encoding.empty() && encoding != "chunked")
@@ -403,7 +405,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					// std::cout << "expected body len: " << expected_body_len 
 					// << " and current max client body size\n" << selected_server->max_client_body_size;
 					if (expected_body_len > selected_server->max_client_body_size)
-						throw ErrorResponseException(413);
+						throw ErrorResponseException(413); // SHOULD CLOSE
 					state = BODY;
 					std::string contentType = request.getHeader("content-type");
 					if (contentType.find("multipart/form-data") != std::string::npos) 
@@ -480,7 +482,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			}
 			if (state == COMPLETE)
 			{
-				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";			
+				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";
 				request.doRequest(*selected_server, server);
 				buffer.erase();
 				return DONE;
