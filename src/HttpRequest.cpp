@@ -10,12 +10,27 @@ HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 
 void HttpRequest::checkContentType(std::string responseContentType)
 {
+	//make cleaner? like parse into actual header values instead of just
+	//trying to find within a string?
 	if (headers.find("accept") != headers.end())
 	{
 		std::string acceptTheseContentTypes = headers.at("accept");
-		if (acceptTheseContentTypes.find(responseContentType) == std::string::npos)
-			throw ErrorResponseException(406);
+		if (acceptTheseContentTypes.find("*/*") != std::string::npos)
+			return ;
+		size_t pos = responseContentType.find('/');
+		if (pos != std::string::npos)
+		{
+			std::string wildCard;
+			wildCard = responseContentType.substr(0, pos + 1);
+			wildCard += '*';
+			if (acceptTheseContentTypes.find(wildCard) != std::string::npos)
+				return ;
+		}
+		 
+		if (acceptTheseContentTypes.find(responseContentType) != std::string::npos)
+			return ;
 	}
+	throw ErrorResponseException(406);
 }
 
 void HttpRequest::setContentType(int postCheck)
