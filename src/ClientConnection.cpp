@@ -404,7 +404,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					}
 					// std::cout << "expected body len: " << expected_body_len 
 					// << " and current max client body size\n" << selected_server->max_client_body_size;
-					if (expected_body_len > selected_server->max_client_body_size)
+					if (static_cast<size_t>(expected_body_len) > selected_server->max_client_body_size)
 						throw ErrorResponseException(413); // SHOULD CLOSE
 					state = BODY;
 					std::string contentType = request.getHeader("content-type");
@@ -423,7 +423,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			if (state == BODY)
 			{
 				// std::cout << "body magic\n";
-				if (buffer.size() < expected_body_len)
+				if (buffer.size() < static_cast<size_t>(expected_body_len))
 					return INCOMPLETE;
 				if (isMultipart)
 				{
@@ -495,7 +495,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		Response::buildErrorResponse(e.getResponseStatus(), 1, fd);
 		return ERROR;
 	}
-	catch (ChildError)
+	catch (ChildError& e)
 	{
 		throw ChildError(500);
 	}

@@ -10,11 +10,25 @@ HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
 
 void HttpRequest::checkContentType(std::string responseContentType)
 {
+	//make cleaner? like parse into actual header values instead of just
+	//trying to find within a string?
 	if (headers.find("accept") != headers.end())
 	{
 		std::string acceptTheseContentTypes = headers.at("accept");
-		if (acceptTheseContentTypes.find(responseContentType) == std::string::npos)
-			throw ErrorResponseException(406);
+		if (acceptTheseContentTypes.find("*/*") != std::string::npos)
+			return ;
+		size_t pos = responseContentType.find('/');
+		if (pos != std::string::npos)
+		{
+			std::string wildCard;
+			wildCard = responseContentType.substr(0, pos + 1);
+			wildCard += '*';
+			if (acceptTheseContentTypes.find(wildCard) != std::string::npos)
+				return ;
+		}
+		if (acceptTheseContentTypes.find(responseContentType) != std::string::npos)
+			return ;
+		throw ErrorResponseException(406);
 	}
 }
 
@@ -96,9 +110,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 
 int HttpRequest::checkPathIsDirectory(void)
 {
-	struct stat path_stat;
-	if (stat(completePath.c_str(), &path_stat) != 0)
-		throw ErrorResponseException(404);
+	struct stat path_stat = safeStat(completePath);
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -109,8 +121,9 @@ void HttpRequest::methodGet(void)
 	int fd;
 	char buffer[1000];
 	std::string responseBody;
-	if (completePath.back() == '/' || checkPathIsDirectory() == 1)
+	if (checkPathIsDirectory() == 1)
 	{
+		std::cout << "path is directory in method get" << std::endl; 
 		if (!currentLocation.index.empty())
 			completePath = completePath + currentLocation.index;
 		else if (currentLocation.dir_listing)
@@ -123,7 +136,7 @@ void HttpRequest::methodGet(void)
 			return ;
 		}
 		else
-			ErrorResponseException(403);
+			throw ErrorResponseException(403);
 	}
 
 	fd = open(completePath.c_str(), O_RDONLY); //nonblock?
@@ -144,15 +157,16 @@ void HttpRequest::methodGet(void)
 }
 
 //EPOLL!!!
-void HttpRequest::methodPost(void)
+void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
 {
 	//post a directory?
 	ssize_t charsWritten;
 	int fd;
 
+	//dont allow to post to directory in case of "normal request" (aka not multipart)
 	setContentType(1);
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
-	if (fd == -1) //500
+	if (fd == -1) //500?
 		throw ErrorResponseException(500);
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
@@ -164,9 +178,10 @@ void HttpRequest::methodPost(void)
 
 void HttpRequest::methodDelete(void)
 {
-	//delete a directory?
 	bool removed;
 
+	if (checkPathIsDirectory() == 1)
+		throw ErrorResponseException(405); //method not allowed?
 	try 
 	{
 		removed = std::filesystem::remove(completePath);
@@ -262,35 +277,36 @@ char HttpRequest::hexToChar(char c)
 	return (0);
 }
 
-void HttpRequest::urlToRealPath(void)
+void HttpRequest::decodeUrl(std::string& decodeThis)
 {
-	std::string realPath;
+	std::string decoded;
 
-	for (size_t i = 0; i < originalPath.length(); ++i)
+	for (size_t i = 0; i < decodeThis.length(); ++i)
 	{
-		if (originalPath[i] == '%')
+		if (decodeThis[i] == '%')
 		{
-			if (i + 2 >= originalPath.length())
+			if (i + 2 >= decodeThis.length())
+			{
 				; //throw??
-			char first = originalPath[i + 1];
-			char second = originalPath[i + 2];
-			realPath += (hexToChar(first) << 4) | hexToChar(second);
+			}
+			char first = decodeThis[i + 1];
+			char second = decodeThis[i + 2];
+			decoded += (hexToChar(first) << 4) | hexToChar(second);
 			i += 2;
 		}
-		else if (originalPath[i] == '+')
-			realPath += " ";
+		else if (decodeThis[i] == '+') //???
+			decoded += " ";
 		else 
-			realPath += originalPath[i];
+			decoded += decodeThis[i];
 		
 	}
-	originalPath = realPath;
+	decodeThis = decoded;
 }
 
 std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pathInfo)
 {
 	std::vector<char *> envp;
 	std::string header;
-
 	envVariables.push_back("REQUEST_METHOD=" + method);
 	envVariables.push_back("SCRIPT_NAME=" + originalPath);
 	envVariables.push_back("SCRIPT_FILENAME=" + completePath);
@@ -303,7 +319,6 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 		envVariables.push_back("QUERY_STRING=" + queryString);
 	else if (method == "POST")
 	{
-		//what if none?
 		if (headers.find("content-length") != headers.end())
 			header = headers.at("content-length");
 		else
@@ -312,11 +327,9 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 		if (headers.find("content-type") != headers.end())
 			header = headers.at("content-type");
 		else 
-			header = ""; //??
+			header = "";
 		envVariables.push_back("CONTENT_TYPE=" + header);
 	}
-	else
-		throw ErrorResponseException(405);
 	for (size_t i = 0; i < envVariables.size(); ++i)
 	{
 		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
@@ -326,17 +339,17 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	return (envp);
 }
 
-std::string HttpRequest::getPathInfo(int interpreterCheck)
+std::string HttpRequest::getPathInfo(std::string cgiExtension)
 {
 	std::string pathInfo;
 	int lenOfPos = 0;
 	size_t posOfPathInfo = std::string::npos;
-	if (interpreterCheck == 1)
+	if (cgiExtension == ".php")
 	{
 		posOfPathInfo = completePath.find(".php");
 		lenOfPos = 4;
 	}
-	else if (interpreterCheck == 2)
+	else if (cgiExtension == ".py")
 	{
 		posOfPathInfo = completePath.find(".py");
 		lenOfPos = 3;
@@ -354,22 +367,33 @@ std::string HttpRequest::getPathInfo(int interpreterCheck)
 	return (pathInfo);
 }
 
-void HttpRequest::checkCgiPaths(std::string interpreterPath)
+struct stat HttpRequest::safeStat(std::string statThis)
 {
-	struct stat scriptStat;
-	if (stat(completePath.c_str(), &scriptStat) == -1) //file not exist or stat failed
-		throw ErrorResponseException(404); //NOT ALWAYS
-	if (!S_ISREG(scriptStat.st_mode))
-		throw ErrorResponseException(404);
-	if (access(completePath.c_str(), X_OK) == -1)
-		throw ErrorResponseException(403); 
+	struct stat st;
+	if (stat(statThis.c_str(), &st) == -1)
+	{
+		if (errno == ENOENT || errno == ENOTDIR)
+			throw ErrorResponseException(404);
+		if (errno == EACCES)
+			throw ErrorResponseException(403);
+		if (errno == ENAMETOOLONG)
+			throw ErrorResponseException(414);
+		else
+		{
+			std::cout << "ERRROOOOORR: " << strerror(errno) << std::endl;
+			throw ErrorResponseException(500);
+		}
+	}
+	return (st);
+}
 
-	struct stat interpreterStat;
-	if (stat(interpreterPath.c_str(), &interpreterStat) == -1)
-    	throw ErrorResponseException(404);
-	if (!S_ISREG(interpreterStat.st_mode))
-    	throw ErrorResponseException(404);
-	if (access(interpreterPath.c_str(), X_OK) == -1)
+void HttpRequest::checkCgiPath(std::string checkThisPath)
+{
+	struct stat pathStat;
+	pathStat = safeStat(checkThisPath);
+	if (!S_ISREG(pathStat.st_mode))
+		throw ErrorResponseException(404);
+	if (access(checkThisPath.c_str(), X_OK) == -1)
 		throw ErrorResponseException(403);
 }
 
@@ -436,16 +460,16 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 			if (delimitor != std::string::npos)
 			{
 				contentTypeHeader = contentType.substr(0, delimitor);
-				contentTypeValue = contentType.substr(delimitor + 1);
+				contentTypeValue = contentType.substr(delimitor + 2);
 				if (contentTypeHeader != "Content-Type")
+				{
 					;//error
+				}
 				for (auto &c : contentTypeHeader)
 					c = tolower(c);
-				for (auto c : contentTypeValue)
-				{
-					if (isspace(c))
-						;//ERROR
-				}
+				contentTypeValue.erase(
+    			std::remove_if(contentTypeValue.begin(), contentTypeValue.end(), [](unsigned char c) {
+        			return std::isspace(c);}), contentTypeValue.end());
 			}
 		}
 	}
@@ -453,6 +477,7 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 
 	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: " 
 	<< contentTypeHeader << "\nCONTENT TYPE VALUE: " << contentTypeValue << std::endl;
+	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(contentTypeValue);
 	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
 	httpResponse.setResponseBody(cgiBody);
@@ -460,12 +485,21 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	httpResponse.sendResponse(clientfd);
 }
 
-void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server)
+void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Server& server)
 {
+	if (method != "GET" && method != "POST")
+		throw ErrorResponseException(405);
+
 	std::string pathInfo;
 	ssize_t charsWritten;
-	pathInfo = getPathInfo(interpreterCheck);
-	checkCgiPaths(interpreterPath);
+	std::string interpreterPath;
+	if (cgiExtension == ".py")
+		interpreterPath = currentLocation.cgi_path_python;
+	else if (cgiExtension == ".php")
+		interpreterPath = currentLocation.cgi_path_php; 
+
+	checkCgiPath(interpreterPath);
+	pathInfo = getPathInfo(cgiExtension);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
 	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
 	char *argv[] =
@@ -476,6 +510,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 	};
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
 	
+	//REMOVE THE TEMP FILES AFTER USE??!
 	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (stdinWriteFd == -1)
 		throw ErrorResponseException(500);
@@ -530,7 +565,7 @@ void HttpRequest::doCgi(std::string interpreterPath, ServerConfig config, int in
 			// 	close(fds_to_close[i]);
 			// server.~Server();
 		}
-		catch (ChildError)
+		catch (ChildError& e)
 		{
 			throw ChildError(500);
 		}
@@ -572,13 +607,79 @@ void HttpRequest::checkQueryString(void)
 		return ;
 	queryString = originalPath.substr(0 + pos + 1);
 	originalPath = originalPath.substr(0, pos);
-	std::cout << "MY QUERY: " << queryString << std::endl;
-	std::cout << "MY PATH AFTER QUERY: " << originalPath << std::endl;
+}
+
+void HttpRequest::checkMethodAllowed()
+{
+	if (std::find(currentLocation.methods.begin(), currentLocation.methods.end(), method) != 
+			currentLocation.methods.end())
+		return ;
+	throw ErrorResponseException(405);
+}
+
+std::string HttpRequest::checkRequestIsCgi(void)
+{	
+	size_t pos = completePath.size();
+	bool isCgi = false;
+	std::string cgiExtension;
+	while (pos > 0)
+	{
+		std::string pathToTry = completePath.substr(0, pos);
+		try 
+		{
+			checkCgiPath(pathToTry);
+		}
+		catch (ErrorResponseException& e)
+		{
+			if (e.getResponseStatus() == 500)
+				throw ErrorResponseException(500);
+			pos = completePath.rfind('/', pos -1);
+			continue ;
+		}
+		if (pathToTry.ends_with(".py"))
+		{
+			isCgi = true;
+			cgiExtension = ".py";
+			break ;
+		}
+		else if (pathToTry.ends_with(".php"))
+		{
+			isCgi = true;
+			cgiExtension = ".php";
+			break ;
+		}
+		pos = completePath.rfind('/', pos -1); //size_t can become huge in case of negative value!!!
+	}
+	if (isCgi == false)
+		return ("");
+	if (cgiExtension == ".py" && !currentLocation.cgi_path_python.empty())
+		return (cgiExtension);
+	if (cgiExtension == ".php" && !currentLocation.cgi_path_php.empty())
+		return (cgiExtension);
+	return ("");
+}
+
+void HttpRequest::sendRedirection(void)
+{
+	std::cout << "HELLO FROM SEND_REDIRECTION" << std::endl;
+	//what if no location? or location but no redirect code?
+	if (originalPath.starts_with(currentLocation.path))
+		originalPath.erase(0, currentLocation.path.size());
+	std::string newPath = currentLocation.redirect_target + originalPath;
+	std::cout << "NEW PATH :" << newPath << std::endl;
+	std::cout << "STATUS: " << currentLocation.redirect_code << std::endl;
+	httpResponse.setResponseHeader("location", newPath);
+	httpResponse.setStatus(currentLocation.redirect_code);
+	httpResponse.sendResponse(clientfd);
 }
 
 void HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
-	//dump();
+	//TRY OUT!
+	//INCOMING PATH: /grr/
+	//COMPLETE PATH: /home/aalbrech/aina_gits/42-webserv/aina_website/grr/grr/
+
+	dump();
 	try
 	{
 		if (path.empty())
@@ -591,37 +692,44 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		path.clear();
 		makeRootAbsolute(config.root);
 		setErrorPages(config.error_pages, config.root);
-		checkQueryString(); //where have it??!!
 		findCurrentLocation(config);
+		std::cout << "REDIR CODE: " << currentLocation.redirect_code << std::endl;
+		std::cout << "REDIR PATH: " << currentLocation.redirect_target << std::endl;
+		if (currentLocation.redirect_code != -1)
+		{
+				sendRedirection();
+				return ;
+		}
+		decodeUrl(originalPath);
+		checkQueryString(); //where have it??!!
 		makeRootAbsolute(currentLocation.root);
-		urlToRealPath();
 		completePath = currentLocation.root + originalPath;
-		checkPathIsSafe();
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
-		std::cout << "I PRINT CGI PATHS, PHP: " << currentLocation.cgi_path_php << " AND PYTHON: " << currentLocation.cgi_path_python << std::endl;
-		if (completePath.find(".php") != std::string::npos) //check up, try std::filesystem::path(filename).extension() != ".py")
-			doCgi(currentLocation.cgi_path_php, config, 1, server);
-		else if (completePath.find(".py") != std::string::npos) //check up
-			doCgi(currentLocation.cgi_path_python, config, 2, server);
-		else if (method == "GET" && 
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "GET") != 
-			currentLocation.methods.end())
+		std::cout << "QUERY STRING: " << queryString << std::endl;
+		checkPathIsSafe();
+		checkMethodAllowed();
+		if (headers.find("content-type") != headers.end())
+		{
+			std::string contentTypeValue = headers.at("content-type");
+			if (contentTypeValue.find("application/x-www-form-urlencoded") != std::string::npos)
+				decodeUrl(body);
+		}
+		std::string cgiExtension = checkRequestIsCgi();
+		if (cgiExtension != "")
+		{
+			std::cout << "WE ARE DOING CGI NOW!" << std::endl;
+			doCgi(config, cgiExtension, server);
+		}
+		else if (method == "GET")
 			methodGet();
-		else if (method == "POST" &&
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "POST") != 
-			currentLocation.methods.end())
+		else if (method == "POST")
 			methodPost();
-		else if (method == "DELETE" &&
-			std::find(currentLocation.methods.begin(), currentLocation.methods.end(), "DELETE") != 
-			currentLocation.methods.end())
+		else if (method == "DELETE")
 			methodDelete();
 		else
-		{
 			Response::buildErrorResponse(405, 1, clientfd, errorPages);
-			//method not allowed
-		}
 	}
-	catch (ChildError)
+	catch (ChildError& e)
 	{
 		std::cerr << "do we get here2\n";
 		throw ChildError(500);
@@ -629,6 +737,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 	catch (ErrorResponseException &e)
 	{
 		std::cout << "do we get here1\n";
+		std::cout << "ERROR CATCHED, ERRNO: " << strerror(errno) << std::endl;
 		Response::buildErrorResponse(e.getResponseStatus(), 1, clientfd, errorPages);
 	} 
 	catch (std::exception& e)

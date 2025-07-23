@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 			Server server;
 			server.startServer(servers);
 		}
-		catch (ChildError)
+		catch (ChildError& e)
 		{
 			return 1;
 		}

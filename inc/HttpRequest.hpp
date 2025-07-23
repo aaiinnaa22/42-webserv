@@ -46,7 +46,7 @@ class HttpRequest
 		void methodGet();
 		void methodPost();
 		void methodDelete();
-		void doCgi(std::string interpreterPath, ServerConfig config, int interpreterCheck, const Server& server);
+		void doCgi(ServerConfig config, std::string cgiExtension, const Server& server);
 		void setContentType(int postCheck = 0);
 		void findCurrentLocation(ServerConfig config);
 		void ResponseBodyIsDirectoryListing(void);
@@ -54,14 +54,18 @@ class HttpRequest
 		void checkPathIsSafe(void);
 		void makeRootAbsolute(std::string& myRoot);
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
-		void urlToRealPath(void);
+		void decodeUrl(std::string& decodeThis);
 		char hexToChar(char c);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);
-		std::string getPathInfo(int interpreterCheck);
-		void checkCgiPaths(std::string interpreterPath);
+		std::string getPathInfo(std::string cgiExtension);
+		void checkCgiPath(std::string checkThisPath);
 		void checkContentType(std::string responseContentType);
 		void sendCgiOutput(std::string cgiOutput);
+		void checkMethodAllowed();
+		std::string checkRequestIsCgi(void);
+		struct stat safeStat(std::string statThis);
+		void sendRedirection(void);
 
 	public:
 		void		parse(const std::string& request);

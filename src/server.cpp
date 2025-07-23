@@ -185,7 +185,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						}
 					}
 			}
-			catch (ChildError)
+			catch (ChildError& e)
 			{
 				throw ChildError(500);
 			}
@@ -308,7 +308,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 		try{
 			handle_epoll_event(events, servers);
 		}
-		catch (ChildError)
+		catch (ChildError& e)
 		{
 			throw ChildError(500);
 		}
@@ -447,7 +447,7 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 	try{
 	check1 = start_epoll(servers);
 	}
-	catch (ChildError)
+	catch (ChildError& e)
 	{
 		throw ChildError(500);
 	}
