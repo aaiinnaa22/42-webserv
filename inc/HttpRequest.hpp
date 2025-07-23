@@ -39,10 +39,10 @@ class HttpRequest
 		LocationConfig currentLocation;
 		std::string originalPath;
 		std::string completePath;
-		Response httpResponse;
 		std::string queryString;
 		std::vector<std::string> envVariables;
 		bool isKeepAlive = true;
+		Response httpResponse;
 		void methodGet();
 		void methodPost();
 		void methodDelete();
@@ -85,7 +85,7 @@ class HttpRequest
 		void		setKeepAlive(bool isAlive);
 		void		appendBody(const std::string& data);
 		std::string	getHeader(const std::string& key) const;
-		void		doRequest(ServerConfig config, const Server& server);
+		Response	doRequest(ServerConfig config, const Server& server);// we might not need server
 		
 		HttpRequest(int fd);
 		~HttpRequest() {};

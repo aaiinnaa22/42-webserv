@@ -483,7 +483,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			if (state == COMPLETE)
 			{
 				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";
-				request.doRequest(*selected_server, server);
+				response = request.doRequest(*selected_server, server);
 				buffer.erase();
 				return DONE;
 			}
@@ -492,7 +492,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	catch (ErrorResponseException &e)
 	{
 		std::cout << "do i go here?\n";
-		Response::buildErrorResponse(e.getResponseStatus(), 1, fd);
+		response.buildErrorResponse(e.getResponseStatus(), fd);
 		return ERROR;
 	}
 	catch (ChildError& e)
@@ -502,7 +502,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
-		Response::buildErrorResponse(500, 1, fd);
+		response.buildErrorResponse(500, fd);
 		return ERROR;
 	}
 	return ERROR;

@@ -111,6 +111,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 int HttpRequest::checkPathIsDirectory(void)
 {
 	struct stat path_stat = safeStat(completePath);
+	std::cout << "IS PATH DIR?!" << std::endl;
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -673,7 +674,7 @@ void HttpRequest::sendRedirection(void)
 	httpResponse.sendResponse(clientfd);
 }
 
-void HttpRequest::doRequest(ServerConfig config, const Server& server)
+Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
 	//TRY OUT!
 	//INCOMING PATH: /grr/
@@ -682,11 +683,11 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 	dump();
 	try
 	{
-		if (path.empty())
-		{
-			std::cout << "no path incoming to doRequest...stopping request" << std::endl;
-			return ;
-		}
+		//if (path.empty())
+		//{
+		//	std::cout << "no path incoming to doRequest...stopping request" << std::endl;
+		//	return(httpResponse);
+		//}
 		std::cout << "INCOMING PATH: " << path << std::endl; 
 		originalPath = path;
 		path.clear();
@@ -698,7 +699,7 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 		if (currentLocation.redirect_code != -1)
 		{
 				sendRedirection();
-				return ;
+				return (httpResponse);
 		}
 		decodeUrl(originalPath);
 		checkQueryString(); //where have it??!!
@@ -721,13 +722,16 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 			doCgi(config, cgiExtension, server);
 		}
 		else if (method == "GET")
+		{
+			std::cout << "WE ARE DOING METHOD GET" << std::endl;
 			methodGet();
+		}
 		else if (method == "POST")
 			methodPost();
 		else if (method == "DELETE")
 			methodDelete();
 		else
-			Response::buildErrorResponse(405, 1, clientfd, errorPages);
+			httpResponse.buildErrorResponse(405, clientfd, errorPages);
 	}
 	catch (ChildError& e)
 	{
@@ -737,14 +741,18 @@ void HttpRequest::doRequest(ServerConfig config, const Server& server)
 	catch (ErrorResponseException &e)
 	{
 		std::cout << "do we get here1\n";
-		std::cout << "ERROR CATCHED, ERRNO: " << strerror(errno) << std::endl;
-		Response::buildErrorResponse(e.getResponseStatus(), 1, clientfd, errorPages);
+		std::cout << "ERROR CATCHED, ERRNO: " << strerror(errno) << ", ERROR STATUS: " << e.getResponseStatus() << std::endl;
+		httpResponse.buildErrorResponse(e.getResponseStatus(), clientfd, errorPages);
+		std::cout << httpResponse.getStatusCode() << " and " << httpResponse.getStatusMessage() << " resp rest\n";
+		return (httpResponse);
 	} 
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
-		Response::buildErrorResponse(500, 1, clientfd, errorPages);
+		httpResponse.buildErrorResponse(500, clientfd, errorPages);
+		return (httpResponse);
 	}
+	return (httpResponse);
 }
 
 //Aina end

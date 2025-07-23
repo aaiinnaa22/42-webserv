@@ -102,13 +102,13 @@ std::string Response::toString() const
     return response;
 }
 
-Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd, std::map<int, std::string> errorPages)
+void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, std::string> errorPages)
 {
+	(void)clientFd;
 	//WHAT IF text/html is not allowed in request headers???
 	std::cout << "build error response call\n";
-	Response res;
-	res.setStatus(statusCode);
-	res.setResponseHeader("content-type", "text/html");
+	setStatus(statusCode);
+	setResponseHeader("content-type", "text/html");
 	
 	// std::cout << "build error test\n";
 	// std::cout << statusCode << "-what funcrion received\n";
@@ -122,35 +122,37 @@ Response Response::buildErrorResponse(int statusCode, bool sendNow, int clientFd
 	char buffer[1000];
 	std::string responseBody;
 	//epoll?
+	std::cout << "TRYING TO OPEN ERROR FILE " << errorFile << std::endl;
 	int fd = open(errorFile.c_str(), O_RDONLY);
 	if (fd == -1) //but it means not found?!
 	{
+		std::cout << "BUiLD ERROR ERROR FILE COULDNT GET OPENED" << std::endl;
 		std::string safetyError = "<h1>500 - Internal Server Error</h1>";
-		res.setResponseBody(safetyError);
-		res.setStatus(500);
-		if (sendNow)
-			res.sendResponse(clientFd);
-		return (res);
+		setResponseBody(safetyError);
+		setStatus(500);
+		// if (sendNow)
+		// 	res.sendResponse(clientFd);
+		return ;
 	}
 	while ((chars_read = read(fd, buffer, sizeof(buffer))) > 0)
 		responseBody.append(buffer, chars_read);
 	close(fd);
 	if (chars_read == -1)
 	{
+		std::cout << "RESPONSE BODY FILE IN BUILD ERROR COULDNT GET OPENED" << std::endl;
 		std::string safetyError = "<h1>500 - Internal Server Error</h1>";
-		res.setResponseBody(safetyError);
-		res.setStatus(500);
-		if (sendNow)
-			res.sendResponse(clientFd);
-		return (res);
+		setResponseBody(safetyError);
+		setStatus(500);
+		// if (sendNow)
+		// 	res.sendResponse(clientFd);
+		return ;
 	}
-	res.setResponseBody(responseBody);
+	setResponseBody(responseBody);
 	std::cout << "what i built in built error response\n";
-	std::cout << res.httpVersion << " " << res.statusCode << std::endl;
+	std::cout << httpVersion << " " << statusCode << std::endl;
 	//can this send already???
-	if (sendNow)
-		res.sendResponse(clientFd);
-	return res;
+	// if (sendNow)
+	// 	res.sendResponse(clientFd);
 }
 
 void Response::sendResponse(int clientFd)

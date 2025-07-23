@@ -77,8 +77,8 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 {
 	int fd;
 	int testflag = 0;
-	struct epoll_event ev;
-    ev.events = EPOLLIN; // | EPOLLET;
+	// struct epoll_event ev;
+    // ev.events = EPOLLIN; //| EPOLLOUT; // | EPOLLET;
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 	std::vector<ServerConfig> matching_servers;
@@ -95,16 +95,21 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
 				if (clientfd < 0){
 					std::cerr << "Failed to establish connection1" << std::endl;
-					close(clientfd);
+					//close(clientfd);
+					continue;
 				}
 				if (set_non_blocking(clientfd) < 0){
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
+					continue;
 				}
+				struct epoll_event ev;
+				ev.events = EPOLLIN;
 				ev.data.fd = clientfd;
 				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
+					continue;
 				}
 				for (size_t j = 0; j < servers.size(); ++j)
 				{
@@ -113,7 +118,12 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 				for (auto configs : matching_servers)
 					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
-				connections.try_emplace(clientfd, clientfd, matching_servers);
+				if (!connections.try_emplace(clientfd, clientfd, matching_servers).second)
+				{
+					std::cerr << "Failed to insert connection for fd " << clientfd << std::endl;
+					close(clientfd);
+					continue;
+				}
 				auto it = connections.find(clientfd);
 				if (it != connections.end()) {
 					it->second.setLastActivity();
@@ -130,15 +140,15 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		if ((events[i].events & EPOLLIN) && testflag == 0)
 		{
 			// std::cout << "Do we get here?"<< std::endl;
-			char buffer[100] = {0};
+			char buffer[1024] = {0};
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
-				std::cerr << "Connection closed" << std::endl; // send response??
+				//std::cerr << "Connection closed" << std::endl; // send response??
 				continue ;
 			}	
 			auto it = connections.find(fd);
 			if (it == connections.end())
-    			std::cerr << "No parser for fd " << fd << "\n";
+    			std::cerr << "No connection for fd " << fd << "\n";
 			else
 			{
     			auto &conn = it->second;
@@ -147,23 +157,23 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				{
 					//std::cout << "buffer before parsing call: --" << buffer << "--\n";
 					int result = conn.parseData(buffer, bytes_read, *this);
-					if (result == 2)//both possibly be one if now (result DONE and result ERROR)
+					if (result == 2)
 					{
-						// std::string errorResponse = conn.getResponse().toString();
-						// std::cout << errorResponse << "before send test"<< std::endl;
-						//send(fd, errorResponse.c_str(), errorResponse.size(), 0);
-						// std::cout << errorResponse << " --> response sent\n";
-			
 						if (!conn.getIsAlive())
 						{
 							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-							close(fd);
-							connections.erase(fd);
-							std::memset(buffer, 0, sizeof(buffer));
+							//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+							close(fd);//move to send logic
+							connections.erase(fd);//move to send logic
+							std::memset(buffer, 0, sizeof(buffer));//move to send logic
 						}
 						else
 						{
 							conn.resetState();
+							struct epoll_event ev;
+							ev.events = EPOLLIN | EPOLLOUT;
+							ev.data.fd = fd;
+							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
 							std::memset(buffer, 0, sizeof(buffer));
 						}
 					}
@@ -173,7 +183,8 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						{
 							std::cout << "coming back from parsing after a close???" << std::endl;
 							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-							if (fd > 0)
+							//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+							if (fd > 0)//MOVE
 								close(fd);
 							connections.erase(fd);
 							std::memset(buffer, 0, sizeof(buffer));
@@ -181,6 +192,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						else
 						{
 							conn.resetState();
+							struct epoll_event ev;
+							ev.events = EPOLLIN | EPOLLOUT;
+							ev.data.fd = fd;
+							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
 							std::memset(buffer, 0, sizeof(buffer));
 						}
 					}
@@ -205,11 +220,32 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
                 close(fd);
 				connections.erase(fd);
+				continue;
 			}
-			//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); 'Saved this here not sure if will be needed'
+			// ev.events = EPOLLOUT;
+			// ev.data.fd = fd;
+			// epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //'Saved this here not sure if will be needed'
 		}
-		if ((events[i].events & EPOLLOUT) && testflag == 0){
+		if ((events[i].events & EPOLLOUT))
+		{
 			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDINF MESSAFE NOW" << std::endl;
+			auto it = connections.find(fd);
+			if (it == connections.end())
+    			std::cerr << "Not found: " << fd << "\n";
+			else
+			{
+    			auto &conn = it->second;
+				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
+				std::cout << conn.getResponse().getStatusCode() << std::endl;
+				std::cout << conn.getResponse().getStatusMessage() << std::endl;
+				conn.getResponse().sendResponse(fd);//send should set a state to sent upon completion
+			}
+			sleep(1);
+			struct epoll_event ev;
+			ev.events = EPOLLIN;
+			ev.data.fd = fd;
+			epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+			
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
 		{

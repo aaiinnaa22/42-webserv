@@ -29,7 +29,7 @@ class Response
 		std::string getBody() const;
 		std::string toString() const;
 
-		static Response buildErrorResponse(int statusCode, bool sendNow, int clientFd, std::map<int, std::string> errorPages = {});
+		void buildErrorResponse(int statusCode, int clientFd, std::map<int, std::string> errorPages = {});
 		void sendResponse(int clientFd); //public?
 
 		Response() = default;
