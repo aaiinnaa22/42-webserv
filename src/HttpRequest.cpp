@@ -414,6 +414,9 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	}
 	if (pos != std::string::npos)
 		cgiBody = cgiOutput.substr(pos + findLen);
+	if (pos == std::string::npos)
+		throw ErrorResponseException(500);
+
 
 	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
 
@@ -423,8 +426,8 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	std::string status;
 	size_t endOfHeader = std::string::npos;
 	int intStatus = -1;
-
-
+	std::cout << "CGI HEADERS OUTPUT: \"" << cgiHeaders << "\"" << std::endl;
+	//if no status, default to 200 ok
 	pos = cgiHeaders.find("Status"); //check that the line is correctly formatted? same goes for the other header
 	if (pos != std::string::npos)
 	{
@@ -434,19 +437,45 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 			endOfHeader = cgiHeaders.find("\r\n", pos);
 		if (endOfHeader != std::string::npos)
 		{
+			if (pos != 0 || (pos > 0 && cgiHeaders.at(pos - 1) != '\n')) //?only newline before?
+			{
+				std::cout << "something was before Status!! THROWINg" << std::endl;
+				throw ErrorResponseException(500);
+			}
 			status = cgiHeaders.substr(pos, endOfHeader);
 			size_t delimitor = status.find(": ");
 			if (delimitor != std::string::npos)
 			{
-				intStatus = std::atoi(status.substr(delimitor + 2).c_str());
+				if (status.substr(0, delimitor) != "Status")
+				{
+					std::cout << "SOMETHING WAS AFTER STATUS BUT BEFOre COLON" << std::endl;
+					throw ErrorResponseException(500);
+				}
+				status = status.substr(delimitor + 2);
+				status.erase(status.begin(), std::find_if(status.begin(), status.end(), [](unsigned char ch) {
+        			return !std::isspace(ch);
+   					}));
+				if (!std::all_of(status.begin(), status.end(), [](unsigned char c){return std::isdigit(c);}))
+						throw ErrorResponseException(500);
+				std::cout << "THIS IS THE STR STATUS FROM CGI: " << status << std::endl;
+				intStatus = std::stoi(status); //overflow?
+			}
+			else 
+			{
+				throw ErrorResponseException(500);
 			}
 		}
+		else
+			throw ErrorResponseException(500);
 	}
 	if (intStatus == -1)
 		intStatus = 200;
+	if (intStatus > 599 || intStatus < 100)
+		throw ErrorResponseException(500);
 	if (intStatus != 200)
 		throw ErrorResponseException(intStatus);
 
+	//if no content type -> THROW 500
 	pos = cgiHeaders.find("Content-Type");
 	if (pos != std::string::npos)
 	{
@@ -460,24 +489,30 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 			size_t delimitor = contentType.find(":");
 			if (delimitor != std::string::npos)
 			{
+				contentType.erase(
+    				std::remove_if(contentType.begin(), contentType.end(), [](unsigned char c) {
+        			return std::isspace(c);}), contentType.end());
 				contentTypeHeader = contentType.substr(0, delimitor);
-				contentTypeValue = contentType.substr(delimitor + 2);
+				contentTypeValue = contentType.substr(delimitor + 1);
 				if (contentTypeHeader != "Content-Type")
 				{
-					;//error
+					throw ErrorResponseException(500);
 				}
 				for (auto &c : contentTypeHeader)
 					c = tolower(c);
-				contentTypeValue.erase(
-    			std::remove_if(contentTypeValue.begin(), contentTypeValue.end(), [](unsigned char c) {
-        			return std::isspace(c);}), contentTypeValue.end());
 			}
+			else 
+				throw ErrorResponseException(500);
 		}
+		else 
+			throw ErrorResponseException(500);
 	}
+	else 
+		throw ErrorResponseException(500);
 	//error? in case of npos
 
-	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: " 
-	<< contentTypeHeader << "\nCONTENT TYPE VALUE: " << contentTypeValue << std::endl;
+	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: \"" 
+	<< contentTypeHeader << "\"\nCONTENT TYPE VALUE: \"" << contentTypeValue << "\"" << std::endl;
 	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(contentTypeValue);
 	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);

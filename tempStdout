@@ -1,8 +1,8 @@
-Status: 200
+Status: 200  
 Content-Type: text/html
 
 <html><body>
 <h1>Hello, Guest!</h1>
 <p>Your fortune for today:</p>
-<blockquote>A new opportunity is on the horizon.</blockquote>
+<blockquote>Today is a perfect day to learn something new.</blockquote>
 </body></html>

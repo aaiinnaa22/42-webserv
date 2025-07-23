@@ -15,7 +15,7 @@ fortunes = [
     "Today is a perfect day to learn something new."
 ]
 
-print("Status: 200")
+print("Status: 200  ")
 print("Content-Type: text/html")
 print()  # End of headers
 
