@@ -451,14 +451,60 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 					std::cout << "SOMETHING WAS AFTER STATUS BUT BEFOre COLON" << std::endl;
 					throw ErrorResponseException(500);
 				}
-				status = status.substr(delimitor + 2);
-				status.erase(status.begin(), std::find_if(status.begin(), status.end(), [](unsigned char ch) {
-        			return !std::isspace(ch);
-   					}));
-				if (!std::all_of(status.begin(), status.end(), [](unsigned char c){return std::isdigit(c);}))
+				status = status.substr(delimitor + 1); //? i want everyting after the colon, even the space
+				std::string strStatusValue;
+				std::string statusReasonPhrase; //what if bad reason phrase? not same as real one?
+				int valueTime = 0;
+				int reasonPhraseTime = 0;
+				std::cout << "I WILL NOW PARSE STATUS: \"" << status << "\"" << std::endl;
+				for (size_t i = 0; i < status.size(); ++i)
+				{
+					if (i == 0 && !isspace(status[i]))
 						throw ErrorResponseException(500);
-				std::cout << "THIS IS THE STR STATUS FROM CGI: " << status << std::endl;
-				intStatus = std::stoi(status); //overflow?
+					if (isspace(status[i]))
+					{
+						std::cout << "current char is a space" << std::endl;
+						if (i + 1 < status.size() && !isspace(status[i + 1]))
+						{
+							std::cout << "next char is NOT space" << std::endl;
+							if (valueTime == 0)
+								valueTime = 1;
+							else if (valueTime == 1)
+							{
+								valueTime = 2;
+								if (reasonPhraseTime == 0)
+									reasonPhraseTime = 1;
+							}
+							else if (reasonPhraseTime == 1)
+								reasonPhraseTime = 2;
+							else 
+							{
+								std::cout << "isspace error" << std::endl;
+								throw ErrorResponseException(500);
+							}
+							std::cout << "going into valueTime [" << valueTime 
+							<< "] and reasonPhraseTime [" << reasonPhraseTime << "]" << std::endl;
+						}
+					}
+					else if (isdigit(status[i]) && valueTime == 1 && reasonPhraseTime == 0)
+					{
+						std::cout << "current char is digit " << status[i] << std::endl;
+						strStatusValue += status[i];
+					}
+					else if (isalpha(status[i]) && reasonPhraseTime == 1 && valueTime == 2)
+					{
+						std::cout << "current char is alpha: " << status[i] << std::endl;
+						statusReasonPhrase += status[i];
+					}
+					else 
+					{
+						std::cout << "non valid char in loop found" << std::endl; 
+						throw ErrorResponseException(500);
+					}	
+				}
+				std::cout << "CGI PARSE STATUS: [" << strStatusValue << "] AND " << "REASON PHRASE: ["
+				<<  statusReasonPhrase << "]" << std::endl;
+				intStatus = std::stoi(strStatusValue);
 			}
 			else 
 			{
