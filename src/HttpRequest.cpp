@@ -37,6 +37,7 @@ void HttpRequest::setContentType(int postCheck)
 	size_t dot;
 	std::string fileExtension;
 	std::string responseContentType;
+	//check on more bases than just file extension?
 
 	dot = completePath.rfind(".");
 	if (dot == std::string::npos)
@@ -429,6 +430,7 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	std::cout << "CGI HEADERS OUTPUT: \"" << cgiHeaders << "\"" << std::endl;
 	//if no status, default to 200 ok
 	pos = cgiHeaders.find("Status"); //check that the line is correctly formatted? same goes for the other header
+	//more than one space after Status: but before the value NOT allowed?
 	if (pos != std::string::npos)
 	{
 		if (findLen == 2)
@@ -522,6 +524,8 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 		throw ErrorResponseException(intStatus);
 
 	//if no content type -> THROW 500
+	//FIX PARSING try ex. print("Content-Type: text/html yos")
+	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param??
 	pos = cgiHeaders.find("Content-Type");
 	if (pos != std::string::npos)
 	{
@@ -561,6 +565,8 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	<< contentTypeHeader << "\"\nCONTENT TYPE VALUE: \"" << contentTypeValue << "\"" << std::endl;
 	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(contentTypeValue);
+	std::cout << "Content type was ALLOWED cgi output" << std::endl;
+	//need to check that its an actual content type aswell? like with setContentType
 	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
 	httpResponse.setResponseBody(cgiBody);
 	httpResponse.setStatus(200);

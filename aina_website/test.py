@@ -16,7 +16,7 @@ fortunes = [
 ]
 
 print("Status: 200 OK")
-print("Content-Type: text/html")
+print("Content-Type: text/html yos")
 print()  # End of headers
 
 

@@ -1,8 +1,8 @@
-Status: 200 OK HI
-Content-Type: text/html
+Status: 200 OK
+Content-Type: text/html yos
 
 <html><body>
 <h1>Hello, Guest!</h1>
 <p>Your fortune for today:</p>
-<blockquote>Today is a perfect day to learn something new.</blockquote>
+<blockquote>Happiness begins with facing your fears.</blockquote>
 </body></html>
