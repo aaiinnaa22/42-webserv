@@ -96,12 +96,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				if (clientfd < 0){
 					std::cerr << "Failed to establish connection1" << std::endl;
 					//close(clientfd);
-					continue;
 				}
 				if (set_non_blocking(clientfd) < 0){
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
-					continue;
 				}
 				struct epoll_event ev;
 				ev.events = EPOLLIN;
@@ -109,7 +107,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
 					std::cerr << "Failed to establish connection1" << std::endl;
 					close(clientfd);
-					continue;
 				}
 				for (size_t j = 0; j < servers.size(); ++j)
 				{
@@ -122,7 +119,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				{
 					std::cerr << "Failed to insert connection for fd " << clientfd << std::endl;
 					close(clientfd);
-					continue;
 				}
 				auto it = connections.find(clientfd);
 				if (it != connections.end()) {
@@ -152,75 +148,39 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			else
 			{
     			auto &conn = it->second;
-
 				try 
 				{
 					//std::cout << "buffer before parsing call: --" << buffer << "--\n";
 					int result = conn.parseData(buffer, bytes_read, *this);
-					if (result == 2)
+					if (result == 2 || result == 1)
 					{
-						if (!conn.getIsAlive())
-						{
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-							//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-							close(fd);//move to send logic
-							connections.erase(fd);//move to send logic
-							std::memset(buffer, 0, sizeof(buffer));//move to send logic
-						}
-						else
-						{
-							conn.resetState();
-							struct epoll_event ev;
-							ev.events = EPOLLIN | EPOLLOUT;
-							ev.data.fd = fd;
-							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-							std::memset(buffer, 0, sizeof(buffer));
-						}
+						struct epoll_event ev;
+						ev.events = EPOLLIN | EPOLLOUT;
+						ev.data.fd = fd;
+						epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);	
 					}
-					else if (result == 1)
-					{
-						if (!conn.getIsAlive())
-						{
-							std::cout << "coming back from parsing after a close???" << std::endl;
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-							//epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-							if (fd > 0)//MOVE
-								close(fd);
-							connections.erase(fd);
-							std::memset(buffer, 0, sizeof(buffer));
-						}
-						else
-						{
-							conn.resetState();
-							struct epoll_event ev;
-							ev.events = EPOLLIN | EPOLLOUT;
-							ev.data.fd = fd;
-							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-							std::memset(buffer, 0, sizeof(buffer));
-						}
-					}
+				}
+				catch (ChildError& e)
+				{
+					throw ChildError(500);
+				}
+				catch (std::runtime_error& e)
+				{
+					std::cout << "runtime error in parse" << e.what() << std::endl;
+					conn.resetState();
+				}
+				catch (...)//stoi fail in parsing or any other function fails from parseData
+				{
+					std::cout << "unusual error with parsing" << std::endl;
+					conn.resetState();
+				}
 			}
-			catch (ChildError& e)
+			if (bytes_read == 0)
 			{
-				throw ChildError(500);
-			}
-			catch (std::runtime_error& e) //make into our own exception
-			{
-				std::cout << "send failed, caught in handle_epoll_event" << std::endl;
-				conn.resetState();
-			}
-			catch (...)//stoi fail in parsing or any other function fails from parseData
-			{
-				std::cout << "unusual error with parsing" << std::endl;
-				conn.resetState();
-			}
-			}
-			if (bytes_read == 0) {
                 std::cout << "Connection closed by client: " << fd << std::endl;
                 epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
                 close(fd);
 				connections.erase(fd);
-				continue;
 			}
 			// ev.events = EPOLLOUT;
 			// ev.data.fd = fd;
@@ -238,14 +198,45 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
 				std::cout << conn.getResponse().getStatusCode() << std::endl;
 				std::cout << conn.getResponse().getStatusMessage() << std::endl;
-				conn.getResponse().sendResponse(fd);//send should set a state to sent upon completion
+				if (!conn.getResponse().isSent)
+				try
+				{
+					conn.getResponse().sendResponse(fd);
+					if (conn.getResponse().isSent)
+					{
+						if (!conn.getIsAlive())
+						{
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+							close(fd);
+							connections.erase(fd);
+						}
+						else
+						{
+							conn.resetState();
+							struct epoll_event ev;
+							ev.events = EPOLLIN;
+							ev.data.fd = fd;
+							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+						}
+					}
+				}
+				catch (ChildError& e)
+				{
+					throw ChildError(500);
+				}
+				catch (std::runtime_error& e)
+				{
+					std::cout << "sending error " << e.what() << std::endl;
+					conn.resetState();
+				}
+				catch (...)
+				{
+					std::cerr << "Failed to send response for fd " << fd << std::endl;
+					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+					close(fd);
+					connections.erase(fd);
+				}
 			}
-			sleep(1);
-			struct epoll_event ev;
-			ev.events = EPOLLIN;
-			ev.data.fd = fd;
-			epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-			
 		}
 		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
 		{

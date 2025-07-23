@@ -159,6 +159,7 @@ void Response::sendResponse(int clientFd)
 {
 	std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
 	//ADD CONNECTION CLOSE OR KEEP-ALIVE
+	isSent = false;
 	ssize_t sending;
 	std::string responseHeaders;
 	std::string contentLength;
@@ -193,4 +194,6 @@ void Response::sendResponse(int clientFd)
 			throw std::runtime_error("");
 		}
 	}
+	if (sending != -1)
+		isSent = true;
 }

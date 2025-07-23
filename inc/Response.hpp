@@ -19,6 +19,7 @@ class Response
 		static const std::unordered_map<int, std::string> reasonPhrases;
 
 	public:
+		bool isSent = false;
 		void setStatus(int code, const std::string& message = "");
 		void setResponseHeader(const std::string &key, const std::string &value);
 		void setResponseBody(std::string &bodyContent);
