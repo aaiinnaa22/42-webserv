@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/22 19:32:03 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/23 15:52:26 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -157,6 +157,7 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 
 void Response::sendResponse(int clientFd)
 {
+	std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
 	//ADD CONNECTION CLOSE OR KEEP-ALIVE
 	ssize_t sending;
 	std::string responseHeaders;

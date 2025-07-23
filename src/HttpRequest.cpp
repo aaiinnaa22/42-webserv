@@ -133,7 +133,7 @@ void HttpRequest::methodGet(void)
 			checkContentType("text/html");
 			httpResponse.setResponseHeader("content-type", "text/html");
 			httpResponse.setStatus(200);
-			httpResponse.sendResponse(clientfd);
+			//httpResponse.sendResponse(clientfd);
 			return ;
 		}
 		else
@@ -154,7 +154,7 @@ void HttpRequest::methodGet(void)
 	setContentType();
 	httpResponse.setResponseBody(responseBody);
 	httpResponse.setStatus(200);
-	httpResponse.sendResponse(clientfd);
+	//httpResponse.sendResponse(clientfd);
 }
 
 //EPOLL!!!
@@ -174,7 +174,7 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 	if (charsWritten == -1) //500?
 		throw ErrorResponseException(500);
 	httpResponse.setStatus(200);
-	httpResponse.sendResponse(clientfd);
+	//httpResponse.sendResponse(clientfd);
 }
 
 void HttpRequest::methodDelete(void)
@@ -483,7 +483,7 @@ void HttpRequest::sendCgiOutput(std::string cgiOutput)
 	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
 	httpResponse.setResponseBody(cgiBody);
 	httpResponse.setStatus(200);
-	httpResponse.sendResponse(clientfd);
+	//httpResponse.sendResponse(clientfd);
 }
 
 void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Server& server)
@@ -671,7 +671,7 @@ void HttpRequest::sendRedirection(void)
 	std::cout << "STATUS: " << currentLocation.redirect_code << std::endl;
 	httpResponse.setResponseHeader("location", newPath);
 	httpResponse.setStatus(currentLocation.redirect_code);
-	httpResponse.sendResponse(clientfd);
+	//httpResponse.sendResponse(clientfd);
 }
 
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
@@ -720,6 +720,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		{
 			std::cout << "WE ARE DOING CGI NOW!" << std::endl;
 			doCgi(config, cgiExtension, server);
+			return (httpResponse);
 		}
 		else if (method == "GET")
 		{
