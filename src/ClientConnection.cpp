@@ -113,26 +113,26 @@ int	ClientConnection::parseRequestLine(size_t len)
 
 	if (!is_ascii(request_line))
 	{
-		std::cout << "test 0\n";
+		std::cout << "ascii\n";
 		throw ErrorResponseException(400);
 	}
 	std::istringstream stream(request_line);
 	std::string method, path, version;
 	if (!(stream >> method >> path))
 	{
-		std::cout << "test1\n";
+		std::cout << "stream division\n";
 		throw ErrorResponseException(400);
 	}
 	if (!(stream >> version))
 		version = "HTTP/1.1";
 	if (method.empty() || path.empty())
 	{
-		std::cout << "tst2\n";
+		std::cout << "empty method or path\n";
 		throw ErrorResponseException(400);
 	}
 	if (method != "GET" && method != "POST" && method != "DELETE")
 	{
-		std::cout << "test4\n";
+		std::cout << "wrong method\n";
 		throw ErrorResponseException(405);
 	}
 	if (path[0] != '/' && path.find("http://") != 0 && path.find("http:://") != 0)
@@ -142,6 +142,7 @@ int	ClientConnection::parseRequestLine(size_t len)
 	}
 	if (path.size() > MAX_URI_LENGTH)
 	{
+		std::cout << "uri size\n";
 		throw ErrorResponseException(414); //SHOULD CLOSE
 	}
  	if (!is_valid_http_version_syntax(version))
@@ -359,22 +360,16 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				std::string checkHost = request.getHeader("host");
 				if (checkHost.empty())
 				{
-					// std::cerr << "IS THIS THROWING?";
+					std::cout << "host header missing\n";	
 					throw ErrorResponseException(400);
 				}
-				// std::string method = request.getMethod();
-				// if (method != "GET" && method != "POST" && method != "DELETE")
-				// {
-				// 	std::cout << "test4\n";
-				// 	throw ErrorResponseException(405);
-				// }
-
 				//finding matching server block, moved here from do request
 				selected_server = selectServerByHost(bound_servers, checkHost);
-				//std::cout << "host check: " << request.getHeader("host");
-				//std::cout << "send header size: " << header_buffer.size() << " and limit: " << selected_server->max_client_header_size << std::endl;
 				if (header_buffer.size() > selected_server->max_client_header_size)
-					throw ErrorResponseException(431); //SHOULD CLOSE
+				{
+					std::cout << "header size exceeded\n";
+					throw ErrorResponseException(431);
+				}
 				std::string encoding = request.getHeader("transfer-encoding");
 				std::string contentLengthVal = request.getHeader("content-length");
 				if (!encoding.empty() && encoding != "chunked")
@@ -399,7 +394,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 					expected_body_len = std::stoi(contentLengthVal);
 					if (expected_body_len < 0) 
 					{
-						std::cout << "is this error2?\n";
+						std::cout << "wrong body len info\n";
 						throw ErrorResponseException(400);
 					}
 					// std::cout << "expected body len: " << expected_body_len 
@@ -492,6 +487,14 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	catch (ErrorResponseException &e)
 	{
 		std::cout << "do i go here?\n";
+		int shouldClose = e.getResponseStatus();
+		std::cout << "response status from catch: " << shouldClose << std::endl;
+		if (shouldClose == 400 || shouldClose == 408 || shouldClose == 411
+			|| shouldClose == 413 || shouldClose == 414 || shouldClose == 431 || shouldClose == 505)
+		{
+			request.setKeepAlive(false);
+			isKeepAlive = false;
+		}
 		response.buildErrorResponse(e.getResponseStatus(), fd);
 		return ERROR;
 	}
