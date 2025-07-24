@@ -15,8 +15,9 @@ fortunes = [
     "Today is a perfect day to learn something new."
 ]
 
+
 print("Status: 200 OK")
-print("Content-Type: text/html yos")
+print("Content-Type: text/html")
 print()  # End of headers
 
 
@@ -45,4 +46,5 @@ print(f"<h1>Hello, {name}!</h1>")
 print(f"<p>Your fortune for today:</p>")
 print(f"<blockquote>{fortune}</blockquote>")
 print("</body></html>")
+
 

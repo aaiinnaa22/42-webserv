@@ -1,0 +1,412 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   cgi.cpp                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
+/*   Updated: 2025/07/24 15:26:21 by aalbrech         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#include "../../inc/HttpRequest.hpp"
+#include "../../inc/ClientConnection.hpp"
+
+std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pathInfo)
+{
+	std::vector<char *> envp;
+	std::string header;
+	envVariables.push_back("REQUEST_METHOD=" + method);
+	envVariables.push_back("SCRIPT_NAME=" + originalPath);
+	envVariables.push_back("SCRIPT_FILENAME=" + completePath);
+	envVariables.push_back("SERVER_PROTOCOL=HTTP/1.1");
+	envVariables.push_back("SERVER_NAME=" + config.server_names.at(0));
+	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
+	envVariables.push_back("PATH_INFO=" + pathInfo);
+
+	if (method == "GET")
+		envVariables.push_back("QUERY_STRING=" + queryString);
+	else if (method == "POST")
+	{
+		if (headers.find("content-length") != headers.end())
+			header = headers.at("content-length");
+		else
+			header = "0"; 
+		envVariables.push_back("CONTENT_LENGTH=" + header);
+		if (headers.find("content-type") != headers.end())
+			header = headers.at("content-type");
+		else 
+			header = "";
+		envVariables.push_back("CONTENT_TYPE=" + header);
+	}
+	for (size_t i = 0; i < envVariables.size(); ++i)
+	{
+		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
+		envp.push_back(const_cast<char *>(envVariables[i].c_str()));
+	}
+	envp.push_back(nullptr);
+	return (envp);
+}
+
+
+std::string HttpRequest::getPathInfo(std::string cgiExtension)
+{
+	std::string pathInfo;
+	int lenOfPos = 0;
+	size_t posOfPathInfo = std::string::npos;
+	if (cgiExtension == ".php")
+	{
+		posOfPathInfo = completePath.find(".php");
+		lenOfPos = 4;
+	}
+	else if (cgiExtension == ".py")
+	{
+		posOfPathInfo = completePath.find(".py");
+		lenOfPos = 3;
+	}
+	if (posOfPathInfo == std::string::npos)
+		throw ErrorResponseException(500);
+	if (posOfPathInfo + 1 < completePath.size())
+	{
+		pathInfo = completePath.substr(posOfPathInfo + lenOfPos);
+		//remove "/" if its the first character?
+		completePath = completePath.substr(0, posOfPathInfo + lenOfPos);
+	}
+	return (pathInfo);
+}
+
+
+void HttpRequest::checkCgiPath(std::string checkThisPath)
+{
+	struct stat pathStat;
+	pathStat = safeStat(checkThisPath);
+	if (!S_ISREG(pathStat.st_mode))
+		throw ErrorResponseException(404);
+	if (access(checkThisPath.c_str(), X_OK) == -1)
+		throw ErrorResponseException(403);
+}
+
+static void parseCgiStatus()
+{
+	
+}
+
+
+void HttpRequest::parseCgiOutput(std::string cgiOutput)
+{
+	std::string cgiBody;
+	std::string cgiHeaders;
+
+	size_t pos = cgiOutput.find("\r\n\r\n"); //try out ex body first like body, headers or body headers body
+	size_t findLen = 4;
+
+	if (pos == std::string::npos) 
+	{
+		pos = cgiOutput.find("\n\n");
+		findLen = 2;
+	}
+	if (pos != std::string::npos)
+		cgiBody = cgiOutput.substr(pos + findLen);
+	if (pos == std::string::npos)
+		throw ErrorResponseException(500);
+
+
+	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
+
+	std::string contentType;
+	std::string contentTypeHeader;
+	std::string contentTypeValue;
+	std::string status;
+	size_t endOfHeader = std::string::npos;
+	int intStatus = -1;
+
+	pos = cgiHeaders.find("Status");
+	if (pos != std::string::npos)
+	{
+		if (findLen == 2)
+			endOfHeader = cgiHeaders.find('\n', pos);
+		else if (findLen == 4)
+			endOfHeader = cgiHeaders.find("\r\n", pos);
+		if (endOfHeader != std::string::npos)
+		{
+			if (pos != 0 && cgiHeaders.at(pos - 1) != '\n')
+				throw ErrorResponseException(500);
+			status = cgiHeaders.substr(pos, endOfHeader);
+			size_t delimitor = status.find(":");
+			if (delimitor != std::string::npos)
+			{
+				std::string statusHeader = status.substr(0, delimitor);
+				ClientConnection::normalize_case(statusHeader);
+				if (statusHeader != "status")
+					throw ErrorResponseException(500);
+				status = status.substr(delimitor + 1);
+				std::string strStatusValue;
+				std::string statusReasonPhrase;
+				int valueTime = 0;
+				int reasonPhraseTime = 0;
+				for (size_t i = 0; i < status.size(); ++i)
+				{
+					if (i == 0 && !isspace(status[i]))
+						valueTime = 1;
+					if (isspace(status[i]))
+					{
+						if (i + 1 < status.size() && !isspace(status[i + 1]))
+						{
+							if (valueTime == 0)
+								valueTime = 1;
+							else if (valueTime == 1)
+							{
+								valueTime = 2;
+								if (reasonPhraseTime == 0)
+									reasonPhraseTime = 1;
+							}
+							else if (reasonPhraseTime == 1)
+								reasonPhraseTime = 2;
+							else
+								throw ErrorResponseException(500);
+						}
+					}
+					else if (isdigit(status[i]) && valueTime == 1 && reasonPhraseTime == 0)
+						strStatusValue += status[i];
+					else if (isalpha(status[i]) && reasonPhraseTime == 1 && valueTime == 2)
+						statusReasonPhrase += status[i];
+					else
+						throw ErrorResponseException(500);
+				}
+				intStatus = std::stoi(strStatusValue);
+			}
+			else
+				throw ErrorResponseException(500);
+		}
+		else
+			throw ErrorResponseException(500);
+	}
+	if (intStatus == -1)
+		intStatus = 200;
+	if (intStatus > 599 || intStatus < 100)
+		throw ErrorResponseException(500);
+	if (intStatus != 200)
+		throw ErrorResponseException(intStatus);
+
+
+	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param??
+	pos = cgiHeaders.find("Content-Type");
+	if (pos != std::string::npos)
+	{
+		if (findLen == 2)
+			endOfHeader = cgiHeaders.find("\n", pos);
+		else if (findLen == 4)
+			endOfHeader = cgiHeaders.find("\r\n", pos);
+		if (endOfHeader != std::string::npos)
+		{
+			if (pos != 0 && cgiHeaders.at(pos - 1) != '\n')
+				throw ErrorResponseException(500);
+			contentType = cgiHeaders.substr(pos, endOfHeader);
+			size_t delimitor = contentType.find(":");
+			if (delimitor != std::string::npos)
+			{
+				contentTypeHeader = contentType.substr(0, delimitor);
+				ClientConnection::normalize_case(contentTypeHeader);
+				if (contentTypeHeader != "content-type")
+					throw ErrorResponseException(500);
+				contentTypeValue = contentType.substr(delimitor + 1);
+				int valueTime = 0;
+				std::string finalContentTypeValue;
+				for (size_t i = 0; i < contentTypeValue.size(); ++i)
+				{
+					if (i == 0 && isalpha(contentTypeValue[i]))
+						valueTime = 1;
+					if (isspace(contentTypeValue[i]))
+					{
+						if (i + 1 < contentTypeValue.size() && !isspace(contentTypeValue[i + 1]))
+							valueTime++;
+					}
+					else if (valueTime == 1 && (isalpha(contentTypeValue[i]) || contentTypeValue[i] == '/'))
+						finalContentTypeValue += contentTypeValue[i];
+					else 
+						throw ErrorResponseException(500);
+
+				}
+				if ((std::count(finalContentTypeValue.begin(), finalContentTypeValue.end(), '/')) != 1)
+					throw ErrorResponseException(500);
+				contentTypeValue = finalContentTypeValue;
+			}
+			else 
+				throw ErrorResponseException(500);
+		}
+		else 
+			throw ErrorResponseException(500);
+	}
+	else 
+		throw ErrorResponseException(500);
+
+	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(intStatus) << "\nCONTENT TYPE HEADER: \"" 
+	<< contentTypeHeader << "\"\nCONTENT TYPE VALUE: \"" << contentTypeValue << "\"" << std::endl;
+	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
+	checkContentType(contentTypeValue);
+	httpResponse.setResponseHeader(contentTypeHeader, contentTypeValue);
+	httpResponse.setResponseBody(cgiBody);
+	httpResponse.setStatus(200);
+}
+
+
+
+
+void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Server& server)
+{
+	if (method != "GET" && method != "POST")
+		throw ErrorResponseException(405);
+
+	std::string pathInfo;
+	ssize_t charsWritten;
+	std::string interpreterPath;
+	if (cgiExtension == ".py")
+		interpreterPath = currentLocation.cgi_path_python;
+	else if (cgiExtension == ".php")
+		interpreterPath = currentLocation.cgi_path_php; 
+
+	checkCgiPath(interpreterPath);
+	pathInfo = getPathInfo(cgiExtension);
+	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
+	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
+	char *argv[] =
+	{
+		const_cast<char *>(interpreterPath.c_str()),
+		const_cast<char *>(completePath.c_str()),
+		nullptr
+	};
+	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
+	
+	//REMOVE THE TEMP FILES AFTER USE??!
+	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if (stdinWriteFd == -1)
+		throw ErrorResponseException(500);
+	charsWritten = write(stdinWriteFd, body.c_str(), body.size());
+	if (charsWritten == -1)
+	{
+		close(stdinWriteFd);
+		throw ErrorResponseException(500);
+	}
+	close (stdinWriteFd);
+	int stdinFd;
+	int stdoutFd;
+	stdinFd = open("tempStdin", O_RDONLY);
+	if (stdinFd == -1)
+		throw ErrorResponseException(500);
+	stdoutFd = open("tempStdout", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if (stdoutFd == -1)
+	{
+		close(stdinFd);
+		throw ErrorResponseException(500);
+	}
+	pid_t pid = fork();
+	if (pid == -1)
+		throw ErrorResponseException(500);
+	// interpreterPath = "/abcd"; //- do this to make execve fail
+	if (pid == 0)
+	{
+		(void)argv;
+		(void)server;
+		try
+		{
+			if (dup2(stdinFd, STDIN_FILENO) == -1)
+			{
+				close(stdinFd);
+				close(stdoutFd);
+				throw ChildError(500, "dup2");
+			}
+			if (dup2(stdoutFd, STDOUT_FILENO) == -1)
+			{
+				close(stdinFd);
+				close(stdoutFd);
+				throw ChildError(500, "dup2");
+			}
+			close(stdinFd);
+			close(stdoutFd);
+			execve(interpreterPath.c_str(), argv, envp.data());
+			std::cerr << "Execve call fail, cleaning fds...\n";
+			throw ChildError(500, "execve");
+			
+			// std::vector<int> fds_to_close = server.get_open_fds();
+			// for (size_t i = 0; i < fds_to_close.size(); ++i)
+			// 	close(fds_to_close[i]);
+			// server.~Server();
+		}
+		catch (ChildError& e)
+		{
+			throw ChildError(500);
+		}
+	}
+	else
+	{
+		close(stdinFd);
+		close(stdoutFd);
+		int status;
+		if (waitpid(pid, &status, 0) == -1)
+			throw ErrorResponseException(500);
+		std::cout << "CHILD STATUS: " << status << std::endl;
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+			throw ErrorResponseException(500);
+
+		int stdoutReadFd = open("tempStdout", O_RDONLY);
+		if (stdoutReadFd == -1)
+			throw ErrorResponseException(500);
+		std::string cgiOutput;
+		char buffer[1000];
+		ssize_t charsRead;
+		//read from stdout
+		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)
+			cgiOutput.append(buffer, charsRead);
+		if (charsRead == -1)
+		{
+			close(stdoutReadFd);
+			throw ErrorResponseException(500);
+		}
+		close(stdoutReadFd);
+		parseCgiOutput(cgiOutput);
+	}
+}
+
+
+std::string HttpRequest::checkRequestIsCgi(void)
+{	
+	size_t pos = completePath.size();
+	bool isCgi = false;
+	std::string cgiExtension;
+	while (pos > 0)
+	{
+		std::string pathToTry = completePath.substr(0, pos);
+		try 
+		{
+			checkCgiPath(pathToTry);
+		}
+		catch (ErrorResponseException& e)
+		{
+			if (e.getResponseStatus() == 500)
+				throw ErrorResponseException(500);
+			pos = completePath.rfind('/', pos -1);
+			continue ;
+		}
+		if (pathToTry.ends_with(".py"))
+		{
+			isCgi = true;
+			cgiExtension = ".py";
+			break ;
+		}
+		else if (pathToTry.ends_with(".php"))
+		{
+			isCgi = true;
+			cgiExtension = ".php";
+			break ;
+		}
+		pos = completePath.rfind('/', pos -1); //size_t can become huge in case of negative value!!!
+	}
+	if (isCgi == false)
+		return ("");
+	if (cgiExtension == ".py" && !currentLocation.cgi_path_python.empty())
+		return (cgiExtension);
+	if (cgiExtension == ".php" && !currentLocation.cgi_path_php.empty())
+		return (cgiExtension);
+	return ("");
+}

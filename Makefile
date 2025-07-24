@@ -4,7 +4,19 @@ all: $(NAME)
 CPP := c++
 FLAGS := -Wall -Wextra -Werror -std=c++20 -g #remove the -g
 
-SOURCE := src/main.cpp src/server.cpp src/HttpRequest.cpp src/ConfigParse.cpp src/ClientConnection.cpp src/Response.cpp src/ErrorResponseException.cpp
+SOURCE := src/main.cpp \
+	src/server.cpp \
+	src/request/HttpRequest.cpp \
+	src/request/cgi.cpp \
+	src/request/doRequest.cpp \
+	src/request/headers.cpp \
+	src/request/paths.cpp \
+	src/request/urlCoding.cpp \
+	src/ConfigParse.cpp \
+	src/ClientConnection.cpp \
+	src/Response.cpp \
+	src/ErrorResponseException.cpp
+
 OBJ := $(SOURCE:.cpp=.o)
 HEADERS := inc/server.hpp inc/HttpRequest.hpp inc/ConfigParse.hpp inc/ClientConnection.hpp inc/Response.hpp inc/ErrorReponseException.hpp
 
