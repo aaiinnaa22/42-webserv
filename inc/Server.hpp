@@ -25,7 +25,6 @@ class Server {
         int _serverfd[5] = {0,0,0,0,0};
         int _epollfd;
         int _read_count;
-        //int _clientfd; //unused???
         std::map<int, ClientConnection> connections;
     public:
         Server();

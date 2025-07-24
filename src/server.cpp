@@ -12,7 +12,6 @@
  Server::Server() : _on(1), _epollfd(0), _read_count(0){
 	for (int i = 0; i < 5; i++){
 		_serverfd[i] = 0;}
-	//int _clientfd = 0; // unusedd??
  }
 
  Server::~Server(){
@@ -55,7 +54,6 @@ int Server::set_non_blocking(int fd)
 		return check;
 	return 0;
 }
-
 /*
 	Here we loop through the events if epoll_wait() returned positive value, which means we have fd's that are ready to be handled. Number of events
 	to be handled is _read_count. If the event is coming from the main server socket we know it's a new connection
@@ -82,7 +80,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 	std::vector<ServerConfig> matching_servers;
-	//std::cout << "Handling event" << std::endl;
 	for(int i = 0; i < _read_count; i++)
 	{	
 		testflag = 0;
@@ -94,18 +91,18 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			{
 				int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
 				if (clientfd < 0){
-					std::cerr << "Failed to establish connection1" << std::endl;
+					std::cerr << "Failed to establish connection1" << std::endl; // Test again what happens when this fails
 					//close(clientfd);
 				}
 				if (set_non_blocking(clientfd) < 0){
-					std::cerr << "Failed to establish connection1" << std::endl;
+					std::cerr << "Failed to establish connection1" << std::endl; // test again what happens when this fails
 					close(clientfd);
 				}
 				struct epoll_event ev;
 				ev.events = EPOLLIN;
 				ev.data.fd = clientfd;
 				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
-					std::cerr << "Failed to establish connection1" << std::endl;
+					std::cerr << "Failed to establish connection1" << std::endl; // test what heppens when this fails
 					close(clientfd);
 				}
 				for (size_t j = 0; j < servers.size(); ++j)
@@ -113,31 +110,32 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					if (servers[j].getHost() == servers[f].getHost() && servers[j].getPort() == servers[f].getPort())
 						matching_servers.push_back(servers[j]);
 				}
-				for (auto configs : matching_servers)
+				for (auto configs : matching_servers) //This is just printing information do we need it??
 					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
 				if (!connections.try_emplace(clientfd, clientfd, matching_servers).second)
 				{
 					std::cerr << "Failed to insert connection for fd " << clientfd << std::endl;
-					close(clientfd);
+					close(clientfd); // Should this also be removed from the epoll list???
 				}
 				auto it = connections.find(clientfd);
 				if (it != connections.end()) {
 					it->second.setLastActivity();
 				}
-				uint16_t src_port = ntohs(addr.sin_port);
+				testflag = 1;
+
+				uint16_t src_port = ntohs(addr.sin_port); //All this is just printing information do we want int??
 				in_addr_t saddr = addr.sin_addr.s_addr;
 				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
 				const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
 				std::cout << "New connection ip: " << cip;
 				std::cout << " Port: " << src_port << std::endl;
-				testflag = 1;
 			}
 		}
 		if ((events[i].events & EPOLLIN) && testflag == 0)
 		{
 			// std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
-			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
+			int bytes_read = recv(fd, buffer, sizeof(buffer),0); // What to do if recv fails???
 			if (bytes_read < 0){
 				//std::cerr << "Connection closed" << std::endl; // send response??
 				continue ;
@@ -157,7 +155,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						struct epoll_event ev;
 						ev.events = EPOLLIN | EPOLLOUT;
 						ev.data.fd = fd;
-						epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);	
+						epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //	epoll_ctl can fail and return -1,  close connection? throw something?
 					}
 				}
 				catch (ChildError& e)
@@ -178,13 +176,10 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			if (bytes_read == 0)
 			{
                 std::cout << "Connection closed by client: " << fd << std::endl;
-                epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+                epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
                 close(fd);
 				connections.erase(fd);
 			}
-			// ev.events = EPOLLOUT;
-			// ev.data.fd = fd;
-			// epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //'Saved this here not sure if will be needed'
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
@@ -206,7 +201,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					{
 						if (!conn.getIsAlive())
 						{
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
 							close(fd);
 							connections.erase(fd);
 						}
@@ -216,7 +211,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 							struct epoll_event ev;
 							ev.events = EPOLLIN;
 							ev.data.fd = fd;
-							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //epoll_ctl can fail and return -1,  close connection? throw something? reset connection state?
 						}
 					}
 				}
@@ -232,16 +227,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				catch (...)
 				{
 					std::cerr << "Failed to send response for fd " << fd << std::endl;
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail?
 					close(fd);
 					connections.erase(fd);
 				}
 			}
 		}
-		else if ((events[i].events & EPOLLHUP )) // Not working ????????????????????????
+		else if ((events[i].events & EPOLLHUP )) // Should this be if -- also testing
 		{
 			std::cout << "Connection closed: " << fd << std::endl;
-			epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
+			epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail?
 			close(fd);
 			connections.erase(fd);
 			continue ;
@@ -306,22 +301,19 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	*/
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
-	//int time_out_timer = 0;
 	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
 	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
 	if (_epollfd == -1)
 		return -1;
 	struct epoll_event ev;
-	ev.events = EPOLLIN; // | EPOLLET; // not sure if I need this here.
+	ev.events = EPOLLIN; 
 	for(size_t i = 0; i < servers.size(); i++){
 		ev.data.fd = _serverfd[i];
-		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0 ){
+		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0 ){ // Double check this error handling??
 			close(_epollfd);
 			return -1;}
 	}
-
 	//Setting up server time stamp
-	//time_t timestamp;
 	struct tm datetime{};
   	int seconds = mktime(&datetime);
 	std::cout << seconds << std::endl;
@@ -346,29 +338,17 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-
-				// std::cout << "Last activity of connection " << conn.getFd() 
-						// << " " << time_out_timer << " seconds ago." << std::endl;
-
 				if (time_out_timer > 120) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
 					close(fd);
-					it = connections.erase(it); // SAFE erase
+					it = connections.erase(it);
 					continue;
 				}
 			}
 			++it;
 		}
 	}
-	// for (size_t k = 0; k < connections.size(); k++)
-	// {
-	// 	std::cout << k << " " << connections[k].getFd() << std::endl;
-	// 	if (connections[k].getFd() != -1)	
-	// 		close(connections[k].getFd());
-	// }
-	// close(_serverfd[0]);
-	// close(_epollfd);
 	return 0;
 }
 /* ....Initiliazing Socket. 
@@ -418,7 +398,7 @@ int32_t Server::get_networkaddress(std::string host)
 	std::vector<int> seglist;
 	while(std::getline(host1, segment, '.'))
 	{	
-		i = std::stoi(segment);
+		i = std::stoi(segment); // Things can fail here??
 		seglist.push_back(i);
 		i = 0;
 	}
@@ -427,7 +407,7 @@ int32_t Server::get_networkaddress(std::string host)
 	return ip_host_order;
 }
 
-void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, std::string host)
+void Server::startServer(std::vector<ServerConfig> servers)
 {
 	for(size_t i = 0; i < servers.size(); i++)
 	{
@@ -480,25 +460,6 @@ void Server::startServer(std::vector<ServerConfig> servers)//(int listen_port, s
 	}
 	if (check1 < 0){
 		close (_serverfd[0]);
-		 throw std::runtime_error("Error! epoll_ctl failed");
+		throw std::runtime_error("Error! epoll_ctl failed");
 	}
 }
-
-// std::vector<int> Server::get_open_fds() const
-// {
-// 	std::vector<int> open_fds;
-// 	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
-// 	{
-// 		int client_fd = it->second.getFd();
-//         if (client_fd != -1)
-//             open_fds.push_back(client_fd);
-// 	}
-// 	for (int i = 0; i < 5 && _serverfd[i] != 0; ++i)
-// 	{
-//         open_fds.push_back(_serverfd[i]);
-//     }
-// 	if (_epollfd != -1)
-//         open_fds.push_back(_epollfd);
-
-//     return open_fds;
-// }
