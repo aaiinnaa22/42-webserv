@@ -36,6 +36,7 @@ class HttpRequest
 		std::string queryString;
 		std::vector<std::string> envVariables;
 		bool isKeepAlive = true;
+		size_t max_client_body_size;
 		Response httpResponse;
 		void methodGet();
 		void methodPost();

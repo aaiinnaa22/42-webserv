@@ -1,9 +1,9 @@
 Status: 200
 Content-Type: text/html
-dfdf
+Content-Length: 10
 
 <html><body>
 <h1>Hello, Guest!</h1>
 <p>Your fortune for today:</p>
-<blockquote>Happiness begins with facing your fears.</blockquote>
+<blockquote>A new opportunity is on the horizon.</blockquote>
 </body></html>

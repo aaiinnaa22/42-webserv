@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 12:54:33 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 15:33:26 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -121,7 +121,7 @@ static void parseCgiStatus(std::string status)
 
 static std::string parseCgiContentType(std::string contentType)
 {
-	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param??
+	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param?? for content-length?
 	int valueTime = 0;
 	std::string finalValue;
 	
@@ -145,14 +145,47 @@ static std::string parseCgiContentType(std::string contentType)
 	return (finalValue);
 }
 
-static std::string parseCgiHeaders(std::string cgiHeaders, size_t findLen)
+static int parseCgiContentLength(std::string contentLength, size_t max_client_body_size)
 {
-	std::vector<std::string> headerTypes {"status", "content-type"};
+	int valueTime = 0;
+	int finalValue = -1;
+	std::string value;
+	
+	for (size_t i = 0; i < contentLength.size(); ++i)
+	{
+		if (i == 0 && isdigit(contentLength[i]))
+			valueTime = 1;
+		if (isspace(contentLength[i]))
+		{
+			if (i + 1 < contentLength.size() && !isspace(contentLength[i + 1]))
+				valueTime++;
+		}
+		else if (valueTime == 1 && (isdigit(contentLength[i])))
+			value += contentLength[i];
+		else 
+			throw ErrorResponseException(500);
+
+	}
+	finalValue = std::stoi(value);
+	if (static_cast<size_t>(finalValue) > max_client_body_size)
+		throw ErrorResponseException(413); 
+	return (finalValue);
+}
+
+static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_t findLen, size_t max_client_body_size)
+{
+	std::vector<std::string> headerTypes {"status", "content-type", "content-length"};
 	size_t pos;
 	size_t endOfHeader;
 	std::string header;
 	std::string value;
+	std::string contentType;
+	int contentLength = -1;
 
+	if (cgiHeaders.empty())
+		throw ErrorResponseException(500);
+	if (!isalpha(cgiHeaders.at(0)))
+		throw ErrorResponseException(500);
 	ClientConnection::normalize_case(cgiHeaders);
 	for (auto headerType : headerTypes)
 	{
@@ -171,10 +204,7 @@ static std::string parseCgiHeaders(std::string cgiHeaders, size_t findLen)
 				if (duplicatePos != std::string::npos)
 				{
 					if (duplicatePos != 0 && cgiHeaders.at(duplicatePos - 1) != '\n')
-					{
-						std::cout << "DUPLICATE" << std::endl;
 						throw ErrorResponseException(500);
-					}
 				}
 				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader);
 				size_t delimitor = currentHeader.find(":");
@@ -186,9 +216,11 @@ static std::string parseCgiHeaders(std::string cgiHeaders, size_t findLen)
 						throw ErrorResponseException(500);
 					value = currentHeader.substr(delimitor + 1);
 					if (headerType == "content-type")
-						return (parseCgiContentType(value));
+						contentType = parseCgiContentType(value);
 					else if (headerType == "status")
 						parseCgiStatus(value);
+					else if (headerType == "content-length")
+						contentLength = parseCgiContentLength(value, max_client_body_size);
 				}
 				else 
 					throw ErrorResponseException(500);
@@ -197,13 +229,16 @@ static std::string parseCgiHeaders(std::string cgiHeaders, size_t findLen)
 				throw ErrorResponseException(500);
 		}
 	}
-	throw ErrorResponseException(500);
+	if (contentType.empty())
+		throw ErrorResponseException(500);
+	return {contentType, contentLength};
 }
 
 void HttpRequest::parseCgiOutput(std::string cgiOutput)
 {
 	std::string cgiBody;
 	std::string cgiHeaders;
+	std::pair<std::string, int> headerResult;
 
 	size_t pos = cgiOutput.find("\r\n\r\n"); //try out ex body first like body, headers or body headers body
 	size_t findLen = 4;
@@ -220,12 +255,20 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 
 	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
 	
-	std::string contentType = parseCgiHeaders(cgiHeaders, findLen);
+	headerResult = parseCgiHeaders(cgiHeaders, findLen, max_client_body_size);
+	if (headerResult.second != -1)
+	{
+		if (cgiBody.size() < static_cast<size_t>(headerResult.second)) //body is shorter that content length
+			throw ErrorResponseException(500);
+		cgiBody.resize(headerResult.second);
+	}
 	
-	std::cout << "CGI PARSING IS DONE\nSTATUS: 200" << "\"\nCONTENT TYPE VALUE: \"" << contentType << "\"" << std::endl;
+	std::cout << "CGI PARSING IS DONE\nSTATUS: 200" << "\"\nCONTENT TYPE VALUE: \"" << headerResult.first << "\"" << "CONTENT LENGTH: \""
+	<< headerResult.second << "\"" << std::endl;
 	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
-	checkContentType(contentType);
-	httpResponse.setResponseHeader("content-type", contentType);
+	checkContentType(headerResult.first);
+	
+	httpResponse.setResponseHeader("content-type", headerResult.first);
 	httpResponse.setResponseBody(cgiBody);
 	httpResponse.setStatus(200);
 }
@@ -323,6 +366,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		close(stdinFd);
 		close(stdoutFd);
 		int status;
+		//add timeout for too long/infinite loop in cgi?
 		if (waitpid(pid, &status, 0) == -1)
 			throw ErrorResponseException(500);
 		std::cout << "CHILD STATUS: " << status << std::endl;

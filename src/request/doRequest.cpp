@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/24 15:21:53 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 14:31:34 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -190,6 +190,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 			if (contentTypeValue.find("application/x-www-form-urlencoded") != std::string::npos)
 				decodeUrl(body);
 		}
+		max_client_body_size = config.max_client_body_size;
 		std::string cgiExtension = checkRequestIsCgi();
 		if (cgiExtension != "")
 			doCgi(config, cgiExtension, server);
