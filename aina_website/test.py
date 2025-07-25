@@ -16,8 +16,10 @@ fortunes = [
 ]
 
 
-print("Status: 200 OK")
+print("Status: 200")
 print("Content-Type: text/html")
+#print("Content-Typ")
+print("dfdf")
 print()  # End of headers
 
 

@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/24 16:38:37 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 12:54:33 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -88,97 +88,75 @@ void HttpRequest::checkCgiPath(std::string checkThisPath)
 }
 
 
-static int parseCgiStatus(std::string status, size_t colon)
+static void parseCgiStatus(std::string status)
 {
-	int intStatus;
-	std::string statusHeader = status.substr(0, colon);
-	ClientConnection::normalize_case(statusHeader);
-	if (statusHeader != "status")
-		throw ErrorResponseException(500);
-	status = status.substr(colon + 1);
-	std::string strStatusValue;
-	std::string statusReasonPhrase;
+	int intStatus = -1;
+	std::string finalStatus;
 	int valueTime = 0;
-	int reasonPhraseTime = 0;
+	
 	for (size_t i = 0; i < status.size(); ++i)
 	{
-		if (i == 0 && !isspace(status[i]))
+		if (i == 0 && isdigit(status[i]))
 			valueTime = 1;
 		if (isspace(status[i]))
 		{
 			if (i + 1 < status.size() && !isspace(status[i + 1]))
-			{
-				if (valueTime == 0)
-					valueTime = 1;
-				else if (valueTime == 1)
-				{
-					valueTime = 2;
-					if (reasonPhraseTime == 0)
-						reasonPhraseTime = 1;
-				}
-				else if (reasonPhraseTime == 1)
-					reasonPhraseTime = 2;
-				else
-					throw ErrorResponseException(500);
-			}
+				valueTime++;
+			if (valueTime == 2)
+				break ;
 		}
-		else if (isdigit(status[i]) && valueTime == 1 && reasonPhraseTime == 0)
-			strStatusValue += status[i];
-		else if (isalpha(status[i]) && reasonPhraseTime == 1 && valueTime == 2)
-			statusReasonPhrase += status[i];
+		else if (isdigit(status[i]) && valueTime == 1)
+			finalStatus += status[i];
 		else
 			throw ErrorResponseException(500);
 	}
-	intStatus = std::stoi(strStatusValue);
+	intStatus = std::stoi(finalStatus);
 	if (intStatus == -1)
-		intStatus = 200;
+		return ;
 	if (intStatus > 599 || intStatus < 100)
 		throw ErrorResponseException(500);
 	if (intStatus != 200)
 		throw ErrorResponseException(intStatus);
 }
 
-static std::string parseCgiContentType(std::string contentType, size_t colon)
+static std::string parseCgiContentType(std::string contentType)
 {
 	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param??
-	std::string contentTypeHeader;
-	std::string contentTypeValue;
-	
-	contentTypeHeader = contentType.substr(0, delimitor);
-	ClientConnection::normalize_case(contentTypeHeader);
-	if (contentTypeHeader != "content-type")
-		throw ErrorResponseException(500);
-	contentTypeValue = contentType.substr(delimitor + 1);
 	int valueTime = 0;
-	std::string finalContentTypeValue;
-	for (size_t i = 0; i < contentTypeValue.size(); ++i)
+	std::string finalValue;
+	
+	for (size_t i = 0; i < contentType.size(); ++i)
 	{
-		if (i == 0 && isalpha(contentTypeValue[i]))
+		if (i == 0 && isalpha(contentType[i]))
 			valueTime = 1;
-		if (isspace(contentTypeValue[i]))
+		if (isspace(contentType[i]))
 		{
-			if (i + 1 < contentTypeValue.size() && !isspace(contentTypeValue[i + 1]))
+			if (i + 1 < contentType.size() && !isspace(contentType[i + 1]))
 				valueTime++;
 		}
-		else if (valueTime == 1 && (isalpha(contentTypeValue[i]) || contentTypeValue[i] == '/'))
-			finalContentTypeValue += contentTypeValue[i];
+		else if (valueTime == 1 && (isalpha(contentType[i]) || contentType[i] == '/'))
+			finalValue += contentType[i];
 		else 
 			throw ErrorResponseException(500);
 
 	}
-	if ((std::count(finalContentTypeValue.begin(), finalContentTypeValue.end(), '/')) != 1)
+	if ((std::count(finalValue.begin(), finalValue.end(), '/')) != 1)
 		throw ErrorResponseException(500);
-	contentTypeValue = finalContentTypeValue;
-	return (contentTypeValue);
+	return (finalValue);
 }
-static void parseCgiHeaders(std::string cgiHeaders, size_t findLen)
+
+static std::string parseCgiHeaders(std::string cgiHeaders, size_t findLen)
 {
-	std::vector<std::string> headerTypes {"content-type", "status"};
+	std::vector<std::string> headerTypes {"status", "content-type"};
 	size_t pos;
 	size_t endOfHeader;
+	std::string header;
+	std::string value;
+
+	ClientConnection::normalize_case(cgiHeaders);
 	for (auto headerType : headerTypes)
 	{
-		pos = cgiHeaders.find(headerType); //how find if not normalized
+		pos = cgiHeaders.find(headerType);
 		if (pos != std::string::npos)
 		{
 			if (findLen == 2)
@@ -189,18 +167,37 @@ static void parseCgiHeaders(std::string cgiHeaders, size_t findLen)
 			{
 				if (pos != 0 && cgiHeaders.at(pos - 1) != '\n')
 					throw ErrorResponseException(500);
+				size_t duplicatePos = cgiHeaders.find(headerType);
+				if (duplicatePos != std::string::npos)
+				{
+					if (duplicatePos != 0 && cgiHeaders.at(duplicatePos - 1) != '\n')
+					{
+						std::cout << "DUPLICATE" << std::endl;
+						throw ErrorResponseException(500);
+					}
+				}
 				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader);
 				size_t delimitor = currentHeader.find(":");
 				if (delimitor != std::string::npos)
 				{
+					cgiHeaders.erase(pos, endOfHeader);
+					header = currentHeader.substr(0, delimitor);
+					if (header != headerType)
+						throw ErrorResponseException(500);
+					value = currentHeader.substr(delimitor + 1);
 					if (headerType == "content-type")
-						parseCgiContentType(currentHeader, delimitor);
+						return (parseCgiContentType(value));
 					else if (headerType == "status")
-						parseCgiStatus(currentHeader, delimitor);
+						parseCgiStatus(value);
 				}
+				else 
+					throw ErrorResponseException(500);
 			}
+			else 
+				throw ErrorResponseException(500);
 		}
 	}
+	throw ErrorResponseException(500);
 }
 
 void HttpRequest::parseCgiOutput(std::string cgiOutput)
@@ -221,12 +218,11 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 	if (pos == std::string::npos)
 		throw ErrorResponseException(500);
 
-
 	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
 	
-	parseCgiHeaders(cgiHeaders, findLen);
+	std::string contentType = parseCgiHeaders(cgiHeaders, findLen);
 	
-	std::cout << "CGI PARSING IS DONE\nSTATUS: " << std::to_string(status) << "\"\nCONTENT TYPE VALUE: \"" << contentType << "\"" << std::endl;
+	std::cout << "CGI PARSING IS DONE\nSTATUS: 200" << "\"\nCONTENT TYPE VALUE: \"" << contentType << "\"" << std::endl;
 	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(contentType);
 	httpResponse.setResponseHeader("content-type", contentType);

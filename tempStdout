@@ -1,8 +1,9 @@
-Status: 200 OK
+Status: 200
 Content-Type: text/html
+dfdf
 
 <html><body>
 <h1>Hello, Guest!</h1>
 <p>Your fortune for today:</p>
-<blockquote>Something unexpected will happen soon.</blockquote>
+<blockquote>Happiness begins with facing your fears.</blockquote>
 </body></html>
