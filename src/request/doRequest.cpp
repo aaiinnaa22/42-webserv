@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 14:31:34 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 18:33:48 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -107,23 +107,59 @@ void HttpRequest::methodGet(void)
 	httpResponse.setStatus(200);
 }
 
+static bool fileNameIsSafe(std::string fileName)
+{
+	//url safe naming?
+	for (auto c : fileName)
+	{
+		if (!isalpha(c) && !isdigit(c) && c != '.' && c != '-' && c != '_')
+			return (false);
+	}
+	return (true);
+}
 
 void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
 {
 	//post a directory?
 	ssize_t charsWritten;
 	int fd;
+	std::string requestContentType;
 
 	//dont allow to post to directory in case of "normal request" (aka not multipart)
-	setContentType(1);
+	if (headers.find("content-type") != headers.end())
+		requestContentType = headers.at("content-type");
+	else 
+		std::cout << "I FOUND CONTENT_TYPE " << std::endl;
+	if (requestContentType.find("multipart/form-data") != std::string::npos) //enough?
+	{
+		//make a dir or what? always /upload? 
+		//check the other headers? and more
+		if (formFields.find("filename") != bodyHeaders.end())
+		{
+			std::string nameOfNewFile = formFields.at("filename");
+			std::cout << "NAME OF NEW FILE: " << nameOfNewFile << std::endl;
+			if (fileNameIsSafe(nameOfNewFile))
+			{
+				completePath += "/" + nameOfNewFile;
+			}
+			else 
+				throw ErrorResponseException(400); //bad request?
+		}
+		//else?
+	}
+	std::cout << "NEW COMPLETE PATH FROM POST: " << completePath << std::endl;
+	setContentType(1); //not even do this for post? cause i dont respond with the file
 	//truncate??
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1)
-		throw ErrorResponseException(500);
+		throw ErrorResponseException(400);
 	charsWritten = write(fd, body.c_str(), body.size());
 	close(fd);
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
+	std::string successHtml = "<h1>File successfully uploaded:)</h1> <p>Go back to home page: <a href=\"/\">Home</a>";
+	httpResponse.setResponseBody(successHtml);
+	httpResponse.setResponseHeader("content-type", "text/html");
 	httpResponse.setStatus(200);
 }
 
