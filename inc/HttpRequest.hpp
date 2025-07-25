@@ -65,6 +65,7 @@ class HttpRequest
 		std::map<std::string, std::string> bodyHeaders;
 		std::map<std::string, std::string> formFields;
 		void 		setMethod(const std::string& m);
+		std::string	getMethod() const;
     	void 		setPath(const std::string& p);
     	void 		setHttpVersion(const std::string& v);
     	void 		addHeader(const std::string& key, const std::string& value);

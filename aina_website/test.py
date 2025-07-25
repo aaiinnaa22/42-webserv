@@ -16,11 +16,9 @@ fortunes = [
 ]
 
 
-
 print("Status: 200")
 print("Content-Type: text/html")
-print("Content-Length: 10")
-#print("Content-Typ")
+#print("Content-Length: 10")
 #print("dfdf")
 print()  # End of headers
 
