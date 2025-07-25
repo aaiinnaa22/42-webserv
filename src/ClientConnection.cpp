@@ -377,6 +377,10 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				}
 				std::string encoding = request.getHeader("transfer-encoding");
 				std::string contentLengthVal = request.getHeader("content-length");
+				if (request.getMethod() == "POST" && contentLengthVal.empty() && encoding.empty())
+				{
+					throw(ErrorResponseException(411));
+				}
 				if (!encoding.empty() && encoding != "chunked")
 					throw ErrorResponseException(501);
 				else if (!encoding.empty() && encoding == "chunked")
@@ -494,8 +498,8 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		std::cout << "do i go here?\n";
 		int shouldClose = e.getResponseStatus();
 		std::cout << "response status from catch: " << shouldClose << std::endl;
-		if (shouldClose == 400 || shouldClose == 408 || shouldClose == 411
-			|| shouldClose == 413 || shouldClose == 414 || shouldClose == 431 || shouldClose == 505)
+		if (shouldClose == 400 || shouldClose == 408 || shouldClose == 413
+			|| shouldClose == 414 || shouldClose == 431 || shouldClose == 505)
 		{
 			request.setKeepAlive(false);
 			isKeepAlive = false;
