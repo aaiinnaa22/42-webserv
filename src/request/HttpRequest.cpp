@@ -11,6 +11,11 @@ void HttpRequest::setMethod(const std::string& m)
 	method = m;
 }
 
+std::string HttpRequest::getMethod() const
+{
+	return method;
+}
+
 void HttpRequest::setPath(const std::string& p)
 { 
 	path = p;

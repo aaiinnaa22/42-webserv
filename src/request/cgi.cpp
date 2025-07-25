@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 15:33:26 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 17:23:06 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -88,6 +88,14 @@ void HttpRequest::checkCgiPath(std::string checkThisPath)
 }
 
 
+static bool isTabOrSpace(char c)
+{
+	if (c == '\t' || c == ' ')
+		return (true);
+	return (false);
+}
+
+
 static void parseCgiStatus(std::string status)
 {
 	int intStatus = -1;
@@ -98,9 +106,9 @@ static void parseCgiStatus(std::string status)
 	{
 		if (i == 0 && isdigit(status[i]))
 			valueTime = 1;
-		if (isspace(status[i]))
+		if (isTabOrSpace(status[i]))
 		{
-			if (i + 1 < status.size() && !isspace(status[i + 1]))
+			if (i + 1 < status.size() && !isTabOrSpace(status[i + 1]))
 				valueTime++;
 			if (valueTime == 2)
 				break ;
@@ -127,11 +135,12 @@ static std::string parseCgiContentType(std::string contentType)
 	
 	for (size_t i = 0; i < contentType.size(); ++i)
 	{
+		std::cout << "CURRENT CHAR: " << contentType[i] << std::endl;
 		if (i == 0 && isalpha(contentType[i]))
 			valueTime = 1;
-		if (isspace(contentType[i]))
+		if (isTabOrSpace(contentType[i]))
 		{
-			if (i + 1 < contentType.size() && !isspace(contentType[i + 1]))
+			if (i + 1 < contentType.size() && !isTabOrSpace(contentType[i + 1]))
 				valueTime++;
 		}
 		else if (valueTime == 1 && (isalpha(contentType[i]) || contentType[i] == '/'))
@@ -142,8 +151,11 @@ static std::string parseCgiContentType(std::string contentType)
 	}
 	if ((std::count(finalValue.begin(), finalValue.end(), '/')) != 1)
 		throw ErrorResponseException(500);
+	std::cout << "FINAL CONTENT TYPE: " << finalValue << std::endl;
 	return (finalValue);
 }
+
+
 
 static int parseCgiContentLength(std::string contentLength, size_t max_client_body_size)
 {
@@ -155,9 +167,9 @@ static int parseCgiContentLength(std::string contentLength, size_t max_client_bo
 	{
 		if (i == 0 && isdigit(contentLength[i]))
 			valueTime = 1;
-		if (isspace(contentLength[i]))
+		if (isTabOrSpace(contentLength[i]))
 		{
-			if (i + 1 < contentLength.size() && !isspace(contentLength[i + 1]))
+			if (i + 1 < contentLength.size() && !isTabOrSpace(contentLength[i + 1]))
 				valueTime++;
 		}
 		else if (valueTime == 1 && (isdigit(contentLength[i])))
@@ -200,17 +212,23 @@ static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_
 			{
 				if (pos != 0 && cgiHeaders.at(pos - 1) != '\n')
 					throw ErrorResponseException(500);
-				size_t duplicatePos = cgiHeaders.find(headerType);
+				size_t duplicatePos = cgiHeaders.find(headerType, endOfHeader);
 				if (duplicatePos != std::string::npos)
 				{
-					if (duplicatePos != 0 && cgiHeaders.at(duplicatePos - 1) != '\n')
+					std::cout << "DUPLICATE? FOR " << headerType << std::endl;
+					if (duplicatePos == 0 || cgiHeaders.at(duplicatePos - 1) == '\n')
 						throw ErrorResponseException(500);
 				}
+				//DOES NOT WORK BECAUSE STATUS: fdf HAS NO NEWLINE BEFORE IT
+				std::cout << "current header is from " << pos << " to " << endOfHeader << std::endl;
 				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader);
+				std::cout << "CURRENT HEADER: " << currentHeader << std::endl;
+				if (currentHeader.find('\n') != std::string::npos)
+					std::cout << "CURRENT HEADER HAS A NEWLINE" << std::endl;
 				size_t delimitor = currentHeader.find(":");
 				if (delimitor != std::string::npos)
 				{
-					cgiHeaders.erase(pos, endOfHeader);
+					cgiHeaders.erase(pos, endOfHeader + (findLen / 2));
 					header = currentHeader.substr(0, delimitor);
 					if (header != headerType)
 						throw ErrorResponseException(500);
