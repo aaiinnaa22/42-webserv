@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 17:23:06 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/25 17:27:43 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -135,7 +135,6 @@ static std::string parseCgiContentType(std::string contentType)
 	
 	for (size_t i = 0; i < contentType.size(); ++i)
 	{
-		std::cout << "CURRENT CHAR: " << contentType[i] << std::endl;
 		if (i == 0 && isalpha(contentType[i]))
 			valueTime = 1;
 		if (isTabOrSpace(contentType[i]))
@@ -151,7 +150,6 @@ static std::string parseCgiContentType(std::string contentType)
 	}
 	if ((std::count(finalValue.begin(), finalValue.end(), '/')) != 1)
 		throw ErrorResponseException(500);
-	std::cout << "FINAL CONTENT TYPE: " << finalValue << std::endl;
 	return (finalValue);
 }
 
@@ -215,16 +213,10 @@ static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_
 				size_t duplicatePos = cgiHeaders.find(headerType, endOfHeader);
 				if (duplicatePos != std::string::npos)
 				{
-					std::cout << "DUPLICATE? FOR " << headerType << std::endl;
 					if (duplicatePos == 0 || cgiHeaders.at(duplicatePos - 1) == '\n')
 						throw ErrorResponseException(500);
 				}
-				//DOES NOT WORK BECAUSE STATUS: fdf HAS NO NEWLINE BEFORE IT
-				std::cout << "current header is from " << pos << " to " << endOfHeader << std::endl;
 				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader);
-				std::cout << "CURRENT HEADER: " << currentHeader << std::endl;
-				if (currentHeader.find('\n') != std::string::npos)
-					std::cout << "CURRENT HEADER HAS A NEWLINE" << std::endl;
 				size_t delimitor = currentHeader.find(":");
 				if (delimitor != std::string::npos)
 				{
