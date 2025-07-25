@@ -366,9 +366,26 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		close(stdinFd);
 		close(stdoutFd);
 		int status;
-		//add timeout for too long/infinite loop in cgi?
-		if (waitpid(pid, &status, 0) == -1)
-			throw ErrorResponseException(500);
+		const int TIMEOUT_SECONDS = 10;
+		std::time_t start_time = std::time(nullptr);
+		while (true)
+		{
+			pid_t result = waitpid(pid, &status, WNOHANG);
+			if (result == -1)
+				throw ErrorResponseException(500);
+			else if (result > 0)
+			{
+				break;
+			}
+			std::time_t now = std::time(nullptr);
+			if (now - start_time > TIMEOUT_SECONDS)
+			{
+				kill(pid, SIGKILL);
+				waitpid(pid, NULL, 0);
+				throw ErrorResponseException(500);
+			}
+			usleep(500000);
+		}
 		std::cout << "CHILD STATUS: " << status << std::endl;
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			throw ErrorResponseException(500);
