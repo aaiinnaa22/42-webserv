@@ -345,7 +345,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 30) {
+				if (time_out_timer > 120) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
