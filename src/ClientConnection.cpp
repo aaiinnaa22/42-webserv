@@ -1,9 +1,6 @@
 #include "../inc/ClientConnection.hpp"
-#include "../inc/ConfigParse.hpp"
-//#include "../inc/HttpRequest.hpp"
-#include "../inc/Response.hpp"
 
-void	normalize_case(std::string &key)
+void	ClientConnection::normalize_case(std::string &key)
 {
 	transform(key.begin(), key.end(), key.begin(), ::tolower);
 }
@@ -80,7 +77,7 @@ const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers,
 	size_t colon_pos = reqHost.find(':');
 	if (colon_pos != std::string::npos)
 		reqHost = reqHost.substr(0, colon_pos);
-	normalize_case(reqHost);
+	ClientConnection::normalize_case(reqHost);
 	const ServerConfig* selectedServer = &servers[0];  // default
 
 	for (const ServerConfig& server : servers)
@@ -88,7 +85,7 @@ const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers,
 		for (const std::string& name : server.server_names)
 		{
 			std::string serverName = name;
-			normalize_case(serverName);
+			ClientConnection::normalize_case(serverName);
 			if (serverName == reqHost)
 			{
 				selectedServer = &server;

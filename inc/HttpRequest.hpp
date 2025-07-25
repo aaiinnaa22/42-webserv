@@ -11,14 +11,10 @@
 #include <sys/stat.h> //stat()
 #include "Response.hpp"
 #include "ErrorResponseException.hpp"
-#include "string" //FOR ENDS_WITH???
+#include <string> //FOR ENDS_WITH???
 #include <cstdlib>
 
-#include "Server.hpp" //maybe remove
-#include "ClientConnection.hpp"
-
 class Server;
-//class ClientConnection;
 
 class HttpRequest
 {
@@ -31,8 +27,6 @@ class HttpRequest
 		std::string httpVersion;
 		std::map<std::string, std::string> headers;
 		std::string	body;
-		//std::string responseBody;
-		//std::string responseContentType;
 		std::map<int, std::string> errorPages;
 
 		int clientfd;
@@ -42,6 +36,7 @@ class HttpRequest
 		std::string queryString;
 		std::vector<std::string> envVariables;
 		bool isKeepAlive = true;
+		size_t max_client_body_size;
 		Response httpResponse;
 		void methodGet();
 		void methodPost();
@@ -55,35 +50,27 @@ class HttpRequest
 		void makeRootAbsolute(std::string& myRoot);
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
 		void decodeUrl(std::string& decodeThis);
-		char hexToChar(char c);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);
 		std::string getPathInfo(std::string cgiExtension);
 		void checkCgiPath(std::string checkThisPath);
 		void checkContentType(std::string responseContentType);
-		void sendCgiOutput(std::string cgiOutput);
+		void parseCgiOutput(std::string cgiOutput);
 		void checkMethodAllowed();
 		std::string checkRequestIsCgi(void);
 		struct stat safeStat(std::string statThis);
-		void sendRedirection(void);
+		void isRedirection(void);
 
 	public:
-		void		parse(const std::string& request);
-		std::string	getMethod() const;
-		std::string	getPath();
-		std::string	getPath() const;
-		std::string	getHttpVersion();
-		std::string getBody();
 		std::map<std::string, std::string> bodyHeaders;
 		std::map<std::string, std::string> formFields;
-		const std::map<std::string, std::string>& getHeaders() const;
 		void 		setMethod(const std::string& m);
     	void 		setPath(const std::string& p);
     	void 		setHttpVersion(const std::string& v);
     	void 		addHeader(const std::string& key, const std::string& value);
     	void 		setBody(const std::string& b);
-		void		setKeepAlive(bool isAlive);
 		void		appendBody(const std::string& data);
+		void		setKeepAlive(bool isAlive);
 		std::string	getHeader(const std::string& key) const;
 		Response	doRequest(ServerConfig config, const Server& server);// we might not need server
 		

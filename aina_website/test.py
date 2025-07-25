@@ -15,8 +15,13 @@ fortunes = [
     "Today is a perfect day to learn something new."
 ]
 
+
+
 print("Status: 200")
 print("Content-Type: text/html")
+print("Content-Length: 10")
+#print("Content-Typ")
+#print("dfdf")
 print()  # End of headers
 
 
@@ -45,4 +50,5 @@ print(f"<h1>Hello, {name}!</h1>")
 print(f"<p>Your fortune for today:</p>")
 print(f"<blockquote>{fortune}</blockquote>")
 print("</body></html>")
+
 

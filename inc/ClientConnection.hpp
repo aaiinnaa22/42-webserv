@@ -1,9 +1,11 @@
 #pragma once
 #include <string>
-#include "HttpRequest.hpp"
 #include "ConfigParse.hpp"
 #include "Response.hpp"
+#include "HttpRequest.hpp"
 #include <ctime>
+
+class Server;
 
 class ClientConnection
 {
@@ -65,5 +67,7 @@ class ClientConnection
 
 		void setLastActivity();
 		int getLastActivity();
+
+		static void	normalize_case(std::string &key);
 		
 };
