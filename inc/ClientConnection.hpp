@@ -58,6 +58,7 @@ class ClientConnection
 		int parseHeaders(std::string buffer);
 		void parseMultipartBody(const std::string& body, const std::string& boundary);
 		bool getIsAlive() const { return isKeepAlive; }
+		void setIsAlive(bool isAlive);
 		void resetState();
 
 		Response& getResponse();   

@@ -58,6 +58,11 @@ bool is_valid_header_key(const std::string& key)
 	return true;
 }
 
+void ClientConnection::setIsAlive(bool isAlive)
+{
+	isKeepAlive = isAlive;
+}
+
 void ClientConnection::resetState()
 {
 	state = REQUEST_LINE;
@@ -504,7 +509,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (std::exception& e)
 	{
-		std::cout << e.what() << " WAS CATCHED IN DOREQUEST!!!" << std::endl;
+		std::cout << e.what() << " WAS CAUGHT IN DOREQUEST!!!" << std::endl;
 		response.buildErrorResponse(500, fd);
 		return ERROR;
 	}

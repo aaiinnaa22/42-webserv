@@ -338,12 +338,19 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 120) {
+				if (time_out_timer > 30) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
-					close(fd);
-					it = connections.erase(it);
-					continue;
+					conn.setIsAlive(false);
+					conn.getResponse().buildErrorResponse(408, fd);
+					// epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, nullptr);
+					// close(fd);
+					struct epoll_event ev;
+    				ev.events = EPOLLOUT;
+    				ev.data.fd = fd;
+    				epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
+
+					// it = connections.erase(it);
+					// continue;
 				}
 			}
 			++it;
