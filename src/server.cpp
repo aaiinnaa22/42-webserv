@@ -196,15 +196,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
 				std::cout << conn.getResponse().getStatusCode() << std::endl;
 				std::cout << conn.getResponse().getStatusMessage() << std::endl;
-				if (!conn.getIsAlive())
-				{
-					close_connection(fd);
-					break ;
-				}
-				if (!conn.getResponse().isSent)
+				// if (!conn.getIsAlive())
+				// {
+				// 	close_connection(fd);
+				// 	break ;
+				// }
+				
 				try
 				{
-					conn.getResponse().sendResponse(fd);
+					if (!conn.getResponse().isSent)
+						conn.getResponse().sendResponse(fd);
 					if (conn.getResponse().isSent)
 					{
 						if (!conn.getIsAlive())
@@ -340,7 +341,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 5) {
+				if (time_out_timer > 60) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
