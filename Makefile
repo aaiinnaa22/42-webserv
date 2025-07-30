@@ -1,37 +1,52 @@
 NAME = webserver
+
 all: $(NAME)
 
+debug: FLAGS += -fsanitize=address,undefined -g
+debug: $(NAME)
+
 CPP := c++
-FLAGS := -Wall -Wextra -Werror -std=c++20 -g #remove the -g
+FLAGS := -Wall -Wextra -Werror -std=c++20
 
-SOURCE := src/main.cpp \
-	src/server.cpp \
-	src/request/HttpRequest.cpp \
-	src/request/cgi.cpp \
-	src/request/doRequest.cpp \
-	src/request/headers.cpp \
-	src/request/paths.cpp \
-	src/request/urlCoding.cpp \
-	src/ConfigParse.cpp \
-	src/ClientConnection.cpp \
-	src/Response.cpp \
-	src/ErrorResponseException.cpp
+DEPFLAGS = -MMD -MP
 
-OBJ := $(SOURCE:.cpp=.o)
-HEADERS := inc/server.hpp inc/HttpRequest.hpp inc/ConfigParse.hpp inc/ClientConnection.hpp inc/Response.hpp inc/ErrorReponseException.hpp
+OBJDIR = obj
+DEPDIR = dep
 
-$(NAME) : $(OBJ)
-	$(CPP) $(FLAGS) $(OBJ) -o $(NAME)
+SRC_DIR := src
+SRCS_NO_DIR:= main.cpp \
+	server.cpp \
+	request/HttpRequest.cpp \
+	request/cgi.cpp \
+	request/doRequest.cpp \
+	request/headers.cpp \
+	request/paths.cpp \
+	request/urlCoding.cpp \
+	ConfigParse.cpp \
+	ClientConnection.cpp \
+	Response.cpp \
+	ErrorResponseException.cpp
 
-src/%.o : src/%.cpp
-	$(CPP) $(FLAGS) -c $< -o $@
+SRCS := $(addprefix $(SRC_DIR)/, $(SRCS_NO_DIR))
+
+OBJS = $(SRCS_NO_DIR:%.cpp=$(OBJDIR)/%.o)
+DEPS = $(SRCS_NO_DIR:%.cpp=$(DEPDIR)/%.d)
+
+$(NAME) : $(OBJS)
+	$(CPP) $(FLAGS) -o $(NAME) $(OBJS)
+
+$(OBJDIR)/%.o : $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D) $(dir $(DEPDIR)/$*.d)
+	$(CPP) $(FLAGS) -c $< -o $@ $(DEPFLAGS) -MF $(DEPDIR)/$*.d
+
+-include $(DEPS)
 
 clean:
-	rm -f $(OBJ)
+	rm -rf $(OBJDIR) $(DEPDIR)
 
 fclean: clean
 	rm -f $(NAME)
 
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all debug clean fclean re

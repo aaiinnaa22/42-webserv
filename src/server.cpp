@@ -197,12 +197,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
 				std::cout << conn.getResponse().getStatusCode() << std::endl;
 				std::cout << conn.getResponse().getStatusMessage() << std::endl;
-				// if (!conn.getIsAlive())
-				// {
-				// 	close_connection(fd);
-				// 	break ;
-				// }
-				
 				try
 				{
 					if (!conn.getResponse().isSent)
