@@ -97,7 +97,7 @@ void HttpRequest::methodGet(void)
 	fd = open(completePath.c_str(), O_RDONLY);
 	if (fd == -1)
 		throw ErrorResponseException(404);
-	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)
+	while ((charsRead = read(fd, buffer, sizeof(buffer))) > 0)//READ CHECKS
 		responseBody.append(buffer, charsRead);
 	close(fd);
 	if (charsRead == -1)
@@ -120,7 +120,7 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1)
 		throw ErrorResponseException(500);
-	charsWritten = write(fd, body.c_str(), body.size());
+	charsWritten = write(fd, body.c_str(), body.size());//checks for 0 
 	close(fd);
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);

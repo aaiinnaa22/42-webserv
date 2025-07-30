@@ -146,6 +146,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0); // What to do if recv fails???
 			if (bytes_read < 0){
 				//std::cerr << "Connection closed" << std::endl; // send response??
+				//as per eval form we need to "remove the client" (close connection likely?)
 				continue ;
 			}	
 			auto it = connections.find(fd);

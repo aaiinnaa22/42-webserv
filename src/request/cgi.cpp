@@ -315,7 +315,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (stdinWriteFd == -1)
 		throw ErrorResponseException(500);
-	charsWritten = write(stdinWriteFd, body.c_str(), body.size());
+	charsWritten = write(stdinWriteFd, body.c_str(), body.size());//check for 0, also the nonblocking file
 	if (charsWritten == -1)
 	{
 		close(stdinWriteFd);
@@ -407,7 +407,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		char buffer[1000];
 		ssize_t charsRead;
 		//read from stdout
-		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)
+		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)//READ CHECKS FOR 0 and -1
 			cgiOutput.append(buffer, charsRead);
 		if (charsRead == -1)
 		{

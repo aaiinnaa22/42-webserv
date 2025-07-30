@@ -131,7 +131,6 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 
 ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 {
-	//std::cout << "Parse server block call\n";
 	std::string line;
 	int braceCount = 1;
 	ServerConfig s1;
@@ -192,7 +191,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		{
 			s1.max_client_header_size = std::stoi(value);//TODO: check
 		}
-		// std::cout << s1.max_client_header_size << "-->header size from struct\n";
 		value = extractConfig(line, "root");
 		if (!value.empty())
 		{
@@ -207,10 +205,22 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 				iss >> codeString >> path;
 				if (!codeString.empty() && !path.empty())
 				{
+					if (!std::regex_match(codeString, std::regex(R"(^\d{3}$)")))
+						throw std::runtime_error ("Error code out of range " + codeString);
 					int code = std::stoi(codeString);//check
 					s1.error_pages[code] = path;
+					std::ifstream file("./" + path);
+					if (!file)
+					{
+						std::cerr << "Failed to open error page: " << path << std::endl;
+					}
+					else
+					{
+						std::ostringstream buffer;
+						buffer << file.rdbuf();
+						s1.error_pages_2[code] = buffer.str();
+					}
 				}
-				//else error message? throwing?
 			}
 		}
        	if (braceCount == 0)
@@ -220,10 +230,11 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
         }
 	}
 	// std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
-	// for (const auto &entry : s1.error_pages)
+	// for (const auto &entry : s1.error_pages_2)
 	// {
 	// 	std::cout << entry.first << " => " << entry.second << " --> error page\n";
 	// }
+
 	return s1;
 }
 
