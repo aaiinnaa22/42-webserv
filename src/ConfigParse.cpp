@@ -207,7 +207,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 				{
 					if (!std::regex_match(codeString, std::regex(R"(^\d{3}$)")))
 						throw std::runtime_error ("Error code out of range " + codeString);
-					int code = std::stoi(codeString);//check
+					int code = std::stoi(codeString);
 					s1.error_pages[code] = path;
 					std::ifstream file("./" + path);
 					if (!file)
@@ -225,7 +225,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		}
        	if (braceCount == 0)
       	{
-    		//std::cout << "End of server block\n";
            	break;
         }
 	}
@@ -264,12 +263,6 @@ int ConfigParse::confParse(std::string &filename)
 				if (line.find('{') != std::string::npos)
 				{
 					ServerConfig s = parseServerBlock(file);
-					// std::pair<std::string, int> hpPair = {s.host, s.listen_port};
-                    // if (seenPairs.find(hpPair) != seenPairs.end())
-					// {
-                    //     throw(std::runtime_error("Parsing error: duplicate listen host and port found"));
-					// }
-					// seenPairs.insert(hpPair);
 					servers.push_back(s);
 				}
 				else
@@ -282,12 +275,6 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find('{') != std::string::npos)
 			{
 				ServerConfig s = parseServerBlock(file);
-				// std::pair<std::string, int> hpPair = {s.host, s.listen_port};
-				// if (seenPairs.find(hpPair) != seenPairs.end())
-				// {
-				// 	throw std::runtime_error("Parsing error: duplicate listen host and port found");
-				// }
-				// seenPairs.insert(hpPair);
 				servers.push_back(s);
 				insideBlock = false;
 			}
