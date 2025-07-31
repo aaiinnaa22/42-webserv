@@ -25,7 +25,8 @@ SRCS_NO_DIR:= main.cpp \
 	ConfigParse.cpp \
 	ClientConnection.cpp \
 	Response.cpp \
-	ErrorResponseException.cpp
+	ErrorResponseException.cpp \
+	defaultErrorPages.cpp
 
 SRCS := $(addprefix $(SRC_DIR)/, $(SRCS_NO_DIR))
 

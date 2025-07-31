@@ -14,11 +14,19 @@
 
 void HttpRequest::setErrorPages(std::map<int, std::string> pages, std::string root)
 {
+	(void)root;
 	if (pages.empty())
+	{
 		return ;
-	for (auto& [status, errorPath] : pages)
-		errorPath = root + errorPath;
+	}
+	// for (auto& [status, errorPath] : pages)
+	// 	errorPath = root + errorPath;
 	errorPages = pages;
+}
+
+std::map<int, std::string> HttpRequest::getErrorPages(void)
+{
+	return (errorPages);
 }
 
 void HttpRequest::checkMethodAllowed()
@@ -206,7 +214,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		originalPath = path;
 		path.clear();
 		makeRootAbsolute(config.root);
-		setErrorPages(config.error_pages, config.root);
+		//setErrorPages(config.error_pages_2, config.root);
 		findCurrentLocation(config);
 		if (currentLocation.redirect_code != -1)
 		{
