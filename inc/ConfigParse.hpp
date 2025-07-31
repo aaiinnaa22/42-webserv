@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <map>
 #include <set>
+#include <regex>
 
 struct LocationConfig
 {
@@ -32,6 +33,7 @@ struct ServerConfig
 	std::string root = "";
 	std::vector<std::string> server_names;
 	std::map<int, std::string> error_pages;
+	std::map<int, std::string> error_pages_2;
 	std::vector<LocationConfig> locations;
 	int getPort() const {return listen_port;}
 	const std::string& getHost() const { return host; }

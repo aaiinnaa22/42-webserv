@@ -71,6 +71,14 @@ int Server::set_non_blocking(int fd)
        to read(2). The recv() call is normally used only on a connected socket
 
 */
+
+void Server::close_connection(int fd){
+	std::cout << "Connection closed: " << fd << std::endl;
+	epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
+	close(fd);
+	connections.erase(fd);
+}
+
 void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers)
 {
 	int fd;
@@ -138,6 +146,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0); // What to do if recv fails???
 			if (bytes_read < 0){
 				//std::cerr << "Connection closed" << std::endl; // send response??
+				//as per eval form we need to "remove the client" (close connection likely?)
 				continue ;
 			}	
 			auto it = connections.find(fd);
@@ -174,12 +183,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 			}
 			if (bytes_read == 0)
-			{
-                std::cout << "Connection closed by client: " << fd << std::endl;
-                epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
-                close(fd);
-				connections.erase(fd);
-			}
+				close_connection(fd);
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
@@ -193,24 +197,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
 				std::cout << conn.getResponse().getStatusCode() << std::endl;
 				std::cout << conn.getResponse().getStatusMessage() << std::endl;
-				if (!conn.getIsAlive())
-				{
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
-					close(fd);
-					connections.erase(fd);
-					break ;
-				}
-				if (!conn.getResponse().isSent)
 				try
 				{
-					conn.getResponse().sendResponse(fd);
+					if (!conn.getResponse().isSent)
+						conn.getResponse().sendResponse(fd);
 					if (conn.getResponse().isSent)
 					{
 						if (!conn.getIsAlive())
 						{
-							epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
-							close(fd);
-							connections.erase(fd);
+							close_connection(fd);
+							// break <- check if needed
 						}
 						else
 						{
@@ -234,18 +230,13 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				catch (...)
 				{
 					std::cerr << "Failed to send response for fd " << fd << std::endl;
-					epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail?
-					close(fd);
-					connections.erase(fd);
+					close_connection(fd); //test
 				}
 			}
 		}
 		else if ((events[i].events & EPOLLHUP )) // Should this be if -- also testing
 		{
-			std::cout << "Connection closed: " << fd << std::endl;
-			epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail?
-			close(fd);
-			connections.erase(fd);
+			close_connection(fd);
 			continue ;
 		}
 	}
@@ -345,7 +336,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 120) {
+				if (time_out_timer > 60) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
