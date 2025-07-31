@@ -233,6 +233,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					int code = std::stoi(codeString);
 					s1.error_pages_2[code] = path;
 					std::ifstream file("./" + path);
+					// std::cout << "Path1: " << path << std::endl;
 					if (!file)
 					{
 						throw std::runtime_error("Failed to open error page");

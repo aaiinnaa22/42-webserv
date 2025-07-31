@@ -1,7 +1,1 @@
-Content-Type: text/html
-
-<html><body>
-<h1>Hello, eagrah!</h1>
-<p>Your fortune for today:</p>
-<blockquote>Something unexpected will happen soon.</blockquote>
-</body></html>
+<html><body><h1>Hello from CGI PHP!</h1></body></html>
