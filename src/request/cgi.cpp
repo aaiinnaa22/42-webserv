@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 17:27:43 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/31 18:34:09 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -77,14 +77,17 @@ std::string HttpRequest::getPathInfo(std::string cgiExtension)
 }
 
 
-void HttpRequest::checkCgiPath(std::string checkThisPath)
+void HttpRequest::checkCgiPath(std::string checkThisPath, bool tryIsExecutable)
 {
 	struct stat pathStat;
 	pathStat = safeStat(checkThisPath);
 	if (!S_ISREG(pathStat.st_mode))
 		throw ErrorResponseException(404);
-	if (access(checkThisPath.c_str(), X_OK) == -1)
-		throw ErrorResponseException(403);
+	if (tryIsExecutable)
+	{
+		if (access(checkThisPath.c_str(), X_OK) == -1)
+			throw ErrorResponseException(403);
+	}
 }
 
 
@@ -246,6 +249,8 @@ static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_
 
 void HttpRequest::parseCgiOutput(std::string cgiOutput)
 {
+	std::cout << "THIS IS THE CGI OUTPUT: " << cgiOutput << std::endl;
+	//allow /n/n instead of /r/n? same for the ones in between headers
 	std::string cgiBody;
 	std::string cgiHeaders;
 	std::pair<std::string, int> headerResult;
@@ -299,7 +304,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	else if (cgiExtension == ".php")
 		interpreterPath = currentLocation.cgi_path_php; 
 
-	checkCgiPath(interpreterPath);
 	pathInfo = getPathInfo(cgiExtension);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
 	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
@@ -425,9 +429,10 @@ std::string HttpRequest::checkRequestIsCgi(void)
 	size_t pos = completePath.size();
 	bool isCgi = false;
 	std::string cgiExtension;
+	std::string pathToTry;
 	while (pos > 0)
 	{
-		std::string pathToTry = completePath.substr(0, pos);
+		pathToTry = completePath.substr(0, pos);
 		try 
 		{
 			checkCgiPath(pathToTry);
@@ -455,9 +460,17 @@ std::string HttpRequest::checkRequestIsCgi(void)
 	}
 	if (isCgi == false)
 		return ("");
-	if (cgiExtension == ".py" && !currentLocation.cgi_path_python.empty())
-		return (cgiExtension);
-	if (cgiExtension == ".php" && !currentLocation.cgi_path_php.empty())
-		return (cgiExtension);
-	return ("");
+	checkCgiPath(pathToTry, true);
+	try 
+	{
+		if (cgiExtension == ".py")
+			checkCgiPath(currentLocation.cgi_path_python, true);
+		else if (cgiExtension == ".php")
+			checkCgiPath(currentLocation.cgi_path_php, true);
+	}
+	catch (ErrorResponseException& e)
+	{
+		throw ErrorResponseException(500);
+	}
+	return (cgiExtension);
 }

@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 13:51:45 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/31 15:33:51 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -74,6 +74,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 //! poll for read and open
 void HttpRequest::methodGet(void)
 {
+	std::cout << "hello from method GET" << std::endl;
 	ssize_t charsRead;
 	int fd;
 	char buffer[1000];
@@ -93,7 +94,6 @@ void HttpRequest::methodGet(void)
 		else
 			throw ErrorResponseException(403);
 	}
-
 	fd = open(completePath.c_str(), O_RDONLY);
 	if (fd == -1)
 		throw ErrorResponseException(404);
@@ -228,6 +228,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		}
 		max_client_body_size = config.max_client_body_size;
 		std::string cgiExtension = checkRequestIsCgi();
+		std::cout << "cgi is checked now, cgiExtension is: " << cgiExtension << std::endl;
 		if (cgiExtension != "")
 			doCgi(config, cgiExtension, server);
 		else if (method == "GET")

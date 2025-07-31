@@ -53,7 +53,7 @@ class HttpRequest
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);
 		std::string getPathInfo(std::string cgiExtension);
-		void checkCgiPath(std::string checkThisPath);
+		void checkCgiPath(std::string checkThisPath, bool tryIsExecutable = false);
 		void checkContentType(std::string responseContentType);
 		void parseCgiOutput(std::string cgiOutput);
 		void checkMethodAllowed();
