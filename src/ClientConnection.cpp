@@ -78,7 +78,7 @@ const ServerConfig* selectServerByHost(const std::vector<ServerConfig>& servers,
 	if (colon_pos != std::string::npos)
 		reqHost = reqHost.substr(0, colon_pos);
 	ClientConnection::normalize_case(reqHost);
-	const ServerConfig* selectedServer = &servers[0];  // default
+	const ServerConfig* selectedServer = &servers[0];
 
 	for (const ServerConfig& server : servers)
 	{
@@ -104,7 +104,6 @@ Response& ClientConnection::getResponse()
 int	ClientConnection::parseRequestLine(size_t len)
 {
 	(void)len;
-	// std::cout << "buffer from request line:" << buffer << "--\n";
 	size_t line_end = buffer.find("\r\n");
 	// if (line_end == std::string::npos)
 	// 	return INCOMPLETE;
@@ -115,47 +114,39 @@ int	ClientConnection::parseRequestLine(size_t len)
 
 	if (!is_ascii(request_line))
 	{
-		std::cout << "ascii\n";
 		throw ErrorResponseException(400);
 	}
 	std::istringstream stream(request_line);
 	std::string method, path, version;
 	if (!(stream >> method >> path))
 	{
-		std::cout << "stream division\n";
 		throw ErrorResponseException(400);
 	}
 	if (!(stream >> version))
 		version = "HTTP/1.1";
 	if (method.empty() || path.empty())
 	{
-		std::cout << "empty method or path\n";
 		throw ErrorResponseException(400);
 	}
 	if (method != "GET" && method != "POST" && method != "DELETE")
 	{
-		std::cout << "wrong method\n";
 		throw ErrorResponseException(405);
 	}
 	if (path[0] != '/' && path.find("http://") != 0 && path.find("http:://") != 0)
 	{
-		std::cout << "test3\n";
 		throw ErrorResponseException(400);
 	}
 	if (path.size() > MAX_URI_LENGTH)
 	{
-		std::cout << "uri size\n";
-		throw ErrorResponseException(414); //SHOULD CLOSE
+		throw ErrorResponseException(414);
 	}
  	if (!is_valid_http_version_syntax(version))
 	{
-		std::cout << "test5\n";
 		throw ErrorResponseException(400);
 	}
 	if (version != "HTTP/1.1")
 	{
-		std::cout << "test6\n";
-		throw ErrorResponseException(505);// SHOULD CLOSE
+		throw ErrorResponseException(505);
 	}
 	request.setMethod(method);
 	request.setPath(path);
@@ -168,6 +159,8 @@ int ClientConnection::parseHeaders(std::string buffer)
 	// std::cout << "parse headers function call\n";
 	std::istringstream stream(buffer);
     std::string line;
+	std::set<std::string> seenHeaders;
+	const std::set<std::string> disallowedDuplicates = {"host", "content-length", "content-type", "user-agent"};
 	while (std::getline(stream, line))
 	{
 		if (line.back() == '\r')
@@ -175,21 +168,24 @@ int ClientConnection::parseHeaders(std::string buffer)
 		if (line.empty())
 			continue; 
 		size_t colon = line.find(':');
-		//std::cout << "line is : " << line << "--end" << std::endl;
 		if (colon == std::string::npos)
 		{
-			std::cout << "test colon\n";
 			throw ErrorResponseException(400);
 		}
 		std::string key = line.substr(0, colon);
 		if (!is_valid_header_key(key))
 		{
-			std::cout << "unsuported chars in headers\n";
 			throw ErrorResponseException(400);
 		}
 		normalize_case(key);
 		std::string value = line.substr(colon + 1);
 		value.erase(0, value.find_first_not_of(" "));
+		if (disallowedDuplicates.count(key) && seenHeaders.count(key))
+		{
+			std::cout << "duplicated header: " << key << std::endl;
+			throw ErrorResponseException(400);
+		}
+		seenHeaders.insert(key);
 		request.addHeader(key, value);
 	}
 	// std::cout << "after parseHeaders getline\n";
@@ -298,19 +294,15 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
         }
     }
 
-    std::cout << "\nParsed Body Headers Map:\n";
     for (const auto& kv : request.bodyHeaders)
         std::cout << kv.first << ": " << kv.second << "\n";
 
-    std::cout << "\nParsed Content-Disposition Params:\n";
     for (const auto& kv : request.formFields)
         std::cout << kv.first << ": " << kv.second << "\n";
 }
 
 ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len, const Server& server)
 {
-	// std::cout << "parseData call\n";
-	// std::cout << "BUFFER LEN: " << len << std::endl;
 	try
 	{
 		buffer.append(data, len);
@@ -318,41 +310,25 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		{
 			if (state == REQUEST_LINE)
 			{
-				// std::cout << "STATE IS NOW REQUEST_LINE" << std::endl;
 				std::cout << "buffer: " << buffer << std::endl;
 				if (buffer.find("\r\n") == std::string::npos)
 					return INCOMPLETE;
 				parseRequestLine(len);
-				//buffer.erase();
-				// std::cout << "buffer after request line parsing: " << buffer << std::endl;
 				state = HEADERS;
 			}
 			else if (state == HEADERS)
 			{
-				// std::cout << "STATE IS NOW HEADERS\n";
-				//std::cout << "buffer from headers call: " << buffer << std::endl;
 				std::string header_buffer;
 				size_t headers_end;
-				// if (buffer.empty() || buffer == "\r\n")
-				// {
-				// 	//std::cout << "NO HEADERS!!!\n";
-				// 	return INCOMPLETE;
-				// }
-				// else 
-				// {
 				headers_end = buffer.find("\r\n\r\n");
 				if (headers_end == std::string::npos)
 				{
-					// std::cout << "incomplete return from parse headers\n";
 					return INCOMPLETE;
 				}
 				header_buffer = buffer.substr(0, headers_end);
 
-				// std::cout << "we are now parsing headers\n";
-				// std::cout << "header_buffer: " << header_buffer << std::endl;
 				parseHeaders(header_buffer);
-				buffer.erase(0, headers_end + 4); 
-				// std::cout << "buffer check :" << buffer << "<--\n";
+				buffer.erase(0, headers_end + 4);
 				std::string connType = request.getHeader("connection");
 				if (connType == "close")
 				{
@@ -362,7 +338,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				std::string checkHost = request.getHeader("host");
 				if (checkHost.empty())
 				{
-					std::cout << "host header missing\n";	
 					throw ErrorResponseException(400);
 				}
 				//finding matching server block, moved here from do request
@@ -370,11 +345,15 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				request.setErrorPages(selected_server->error_pages_2, "");
 				if (header_buffer.size() > selected_server->max_client_header_size)
 				{
-					std::cout << "header size exceeded\n";
 					throw ErrorResponseException(431);
 				}
 				std::string encoding = request.getHeader("transfer-encoding");
 				std::string contentLengthVal = request.getHeader("content-length");
+				if (request.getMethod() != "POST")
+				{
+					state = COMPLETE;
+					continue;
+				}
 				if (request.getMethod() == "POST" && contentLengthVal.empty() && encoding.empty())
 				{
 					throw(ErrorResponseException(411));
@@ -385,29 +364,23 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				{
 					if (!contentLengthVal.empty())
 					{
-						std::cout << "is this error?\n";
 						throw ErrorResponseException(400);
 					}
 					else
 					{
-						// std::cout << "will be parsing chunked\n";
 						state = CHUNKED_BODY;
 						reading_chunk_size = 1;
 					}
 				}
 				else if (!contentLengthVal.empty())
 				{
-					// std::cout << "will be parsing normal body\n";
 					expected_body_len = std::stoi(contentLengthVal);
 					if (expected_body_len < 0) 
 					{
-						std::cout << "wrong body len info\n";
 						throw ErrorResponseException(400);
 					}
-					// std::cout << "expected body len: " << expected_body_len 
-					// << " and current max client body size\n" << selected_server->max_client_body_size;
 					if (static_cast<size_t>(expected_body_len) > selected_server->max_client_body_size)
-						throw ErrorResponseException(413); // SHOULD CLOSE
+						throw ErrorResponseException(413);
 					state = BODY;
 					std::string contentType = request.getHeader("content-type");
 					if (contentType.find("multipart/form-data") != std::string::npos) 
@@ -424,7 +397,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			}
 			if (state == BODY)
 			{
-				// std::cout << "body magic\n";
 				if (buffer.size() < static_cast<size_t>(expected_body_len))
 					return INCOMPLETE;
 				if (isMultipart)
@@ -441,7 +413,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			}
 			if (state == CHUNKED_BODY)
 			{
-				//std::cout << "chunked magic\n";
 				while (true)
 				{
 					if (reading_chunk_size)
@@ -473,7 +444,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 
 						if (buffer.substr(0, 2) != "\r\n")
 						{
-							std::cout << "boody error\n";
 							throw ErrorResponseException(400);
 						}
 						buffer.erase(0, 2);
@@ -484,7 +454,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			}
 			if (state == COMPLETE)
 			{
-				// std::cout << "body check: \"" << request.getBody() << "\" ->end of body\n";
 				response = request.doRequest(*selected_server, server);
 				buffer.erase();
 				return DONE;

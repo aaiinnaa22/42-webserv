@@ -15,7 +15,7 @@
 const std::unordered_map<int, std::string> Response::reasonPhrases = {
 	{200, "OK"},
 	{204, "No Content"},
-    {400, "LOL Bad Request"},
+    {400, "Bad Request"},
     {403, "Forbidden"},
     {404, "Not Found"},
 	{406, "Not Acceptable"},
