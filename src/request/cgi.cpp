@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 18:34:09 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/31 18:47:19 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -249,7 +249,6 @@ static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_
 
 void HttpRequest::parseCgiOutput(std::string cgiOutput)
 {
-	std::cout << "THIS IS THE CGI OUTPUT: " << cgiOutput << std::endl;
 	//allow /n/n instead of /r/n? same for the ones in between headers
 	std::string cgiBody;
 	std::string cgiHeaders;

@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 15:33:51 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/07/31 20:19:15 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -128,8 +128,6 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 	//dont allow to post to directory in case of "normal request" (aka not multipart)
 	if (headers.find("content-type") != headers.end())
 		requestContentType = headers.at("content-type");
-	else 
-		std::cout << "I FOUND CONTENT_TYPE " << std::endl;
 	if (requestContentType.find("multipart/form-data") != std::string::npos) //enough?
 	{
 		//make a dir or what? always /upload? 
@@ -139,20 +137,43 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 			std::string nameOfNewFile = formFields.at("filename");
 			std::cout << "NAME OF NEW FILE: " << nameOfNewFile << std::endl;
 			if (fileNameIsSafe(nameOfNewFile))
-			{
 				completePath += "/" + nameOfNewFile;
-			}
 			else 
 				throw ErrorResponseException(400); //bad request?
 		}
-		//else?
+		else 
+			throw ErrorResponseException(400); //?
+		
+		//change the content-type header acco to whats find in multipart body
+		if (bodyHeaders.find("Content-Type") != bodyHeaders.end())
+		{
+			headers["content-type"] = bodyHeaders.at("Content-Type");
+			std::cout << "MY NEW CONTENT TYPE: " << headers.at("content-type") << std::endl;
+		}
+		else 
+		{
+			std::cout << "REMOVING HEADER CONTENT TYPE" << std::endl;
+			headers.erase("content-type");
+		}
 	}
 	std::cout << "NEW COMPLETE PATH FROM POST: " << completePath << std::endl;
-	setContentType(1); //not even do this for post? cause i dont respond with the file
+	if (completePath.ends_with('/'))
+		throw ErrorResponseException(403);
+	size_t posOfFile = completePath.rfind('/');
+	if (posOfFile != std::string::npos)
+	{
+		std::string pathToPostTo = completePath.substr(0, posOfFile + 1);
+		std::cout << "path to post: " << pathToPostTo << std::endl;
+		safeStat(pathToPostTo);
+	}
+	setContentType(1); //to check content type of file is valid
 	//truncate??
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1)
+	{
+		std::cout << "CANNOT OPEN IN POST" << std::endl;
 		throw ErrorResponseException(500);
+	}
 	charsWritten = write(fd, body.c_str(), body.size());//checks for 0 
 	close(fd);
 	if (charsWritten == -1)
