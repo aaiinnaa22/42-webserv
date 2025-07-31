@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <ctime>
 
- Server::Server() : _on(1), _epollfd(0), _read_count(0){
+ Server::Server() : _on(1), _epollfd(0), _read_count(0), _testflag(0) {
 	for (int i = 0; i < 5; i++){
 		_serverfd[i] = 0;}
  }
@@ -82,55 +82,51 @@ void Server::close_connection(int fd){
 void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers)
 {
 	int fd;
-	int testflag = 0;
-	// struct epoll_event ev;
-    // ev.events = EPOLLIN; //| EPOLLOUT; // | EPOLLET;
 	struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
 	std::vector<ServerConfig> matching_servers;
 	for(int i = 0; i < _read_count; i++)
 	{	
-		testflag = 0;
-		matching_servers.clear(); //clearing for the next loop iteration
+		_testflag = 0;
+		matching_servers.clear();
 		fd = events[i].data.fd;
 		for(size_t f = 0; f < servers.size(); f++)
 		{
-			if ((fd == _serverfd[f]) && (events[i].events & EPOLLIN)) // Probably no need to check EPOLLIN
+			if (fd == _serverfd[f])
 			{
+				_testflag = 1;
 				int clientfd = accept(fd, (struct sockaddr *)&addr, &addr_len);
 				if (clientfd < 0){
-					std::cerr << "Failed to establish connection1" << std::endl; // Test again what happens when this fails
-					//close(clientfd);
+					std::cerr << "Failed to accept connection" << std::endl;
+					continue;
 				}
 				if (set_non_blocking(clientfd) < 0){
-					std::cerr << "Failed to establish connection1" << std::endl; // test again what happens when this fails
+					std::cerr << "Failed to set connection to non blocking" << std::endl;
 					close(clientfd);
+					continue;
 				}
 				struct epoll_event ev;
 				ev.events = EPOLLIN;
 				ev.data.fd = clientfd;
 				if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, clientfd, &ev) < 0 ){
-					std::cerr << "Failed to establish connection1" << std::endl; // test what heppens when this fails
+					std::cerr << "Failed to add new connection to epoll" << std::endl;
 					close(clientfd);
+					continue;
 				}
-				for (size_t j = 0; j < servers.size(); ++j)
-				{
+				for (size_t j = 0; j < servers.size(); ++j){
 					if (servers[j].getHost() == servers[f].getHost() && servers[j].getPort() == servers[f].getPort())
 						matching_servers.push_back(servers[j]);
 				}
-				for (auto configs : matching_servers) //This is just printing information do we need it??
-					std::cout << "host: " << configs.host << ", port: " << configs.listen_port << std::endl;
-				if (!connections.try_emplace(clientfd, clientfd, matching_servers).second)
-				{
+				if (!connections.try_emplace(clientfd, clientfd, matching_servers).second){
 					std::cerr << "Failed to insert connection for fd " << clientfd << std::endl;
-					close(clientfd); // Should this also be removed from the epoll list???
+					close_connection(clientfd);
+					continue;
 				}
 				auto it = connections.find(clientfd);
-				if (it != connections.end()) {
+				if (it != connections.end()){
 					it->second.setLastActivity();
 				}
-				testflag = 1;
-
+				// check that nthos and inet_ntop are allowed functions when intra works again
 				uint16_t src_port = ntohs(addr.sin_port); //All this is just printing information do we want int??
 				in_addr_t saddr = addr.sin_addr.s_addr;
 				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
@@ -139,16 +135,15 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				std::cout << " Port: " << src_port << std::endl;
 			}
 		}
-		if ((events[i].events & EPOLLIN) && testflag == 0)
+		if ((events[i].events & EPOLLIN) && _testflag == 0)
 		{
-			// std::cout << "Do we get here?"<< std::endl;
 			char buffer[1024] = {0};
-			int bytes_read = recv(fd, buffer, sizeof(buffer),0); // What to do if recv fails???
+			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
-				//std::cerr << "Connection closed" << std::endl; // send response??
-				//as per eval form we need to "remove the client" (close connection likely?)
+				std::cerr << "recv failed on: " << fd << std::endl;
+				close_connection(fd);
 				continue ;
-			}	
+			}
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "No connection for fd " << fd << "\n";
@@ -157,14 +152,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
     			auto &conn = it->second;
 				try 
 				{
-					//std::cout << "buffer before parsing call: --" << buffer << "--\n";
 					int result = conn.parseData(buffer, bytes_read, *this);
 					if (result == 2 || result == 1)
 					{
 						struct epoll_event ev;
 						ev.events = EPOLLIN | EPOLLOUT;
 						ev.data.fd = fd;
-						epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //	epoll_ctl can fail and return -1,  close connection? throw something?
+						if (epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev) < 0 ){
+							std::cerr << "Failed to modify epoll: " << fd << std::endl; 
+							close_connection(fd);
+						}
 					}
 				}
 				catch (ChildError& e)
@@ -183,7 +180,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 			}
 			if (bytes_read == 0)
-				close_connection(fd);
+			 	close_connection(fd);
 		}
 		if ((events[i].events & EPOLLOUT))
 		{

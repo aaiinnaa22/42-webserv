@@ -26,6 +26,7 @@ class Server {
         int _epollfd;
         int _read_count;
         std::map<int, ClientConnection> connections;
+        int _testflag;
     public:
         Server();
         ~Server();
