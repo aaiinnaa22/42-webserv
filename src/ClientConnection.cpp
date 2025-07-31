@@ -367,7 +367,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				}
 				//finding matching server block, moved here from do request
 				selected_server = selectServerByHost(bound_servers, checkHost);
-				
+				request.setErrorPages(selected_server->error_pages_2, "");
 				if (header_buffer.size() > selected_server->max_client_header_size)
 				{
 					std::cout << "header size exceeded\n";
@@ -502,7 +502,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 			request.setKeepAlive(false);
 			isKeepAlive = false;
 		}
-		response.buildErrorResponse(e.getResponseStatus(), fd);
+		response.buildErrorResponse(e.getResponseStatus(), fd, request.getErrorPages());
 		return ERROR;
 	}
 	catch (ChildError& e)
@@ -512,7 +512,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << " WAS CAUGHT IN DOREQUEST!!!" << std::endl;
-		response.buildErrorResponse(500, fd);
+		response.buildErrorResponse(500, fd, request.getErrorPages());
 		return ERROR;
 	}
 	return ERROR;
