@@ -60,5 +60,6 @@ void HttpRequest::dump() const {
     for (const auto& [key, value] : headers) {
         std::cout << "  " << key << ": " << value << "\n";
     }
+	//std::cout << "Body: " << body << std::endl;
 	std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
 }
