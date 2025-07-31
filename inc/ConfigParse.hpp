@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <regex>
+#include "../inc/webserv.hpp"
 
 struct LocationConfig
 {
@@ -32,7 +33,7 @@ struct ServerConfig
 	std::string host = "";
 	std::string root = "";
 	std::vector<std::string> server_names;
-	std::map<int, std::string> error_pages;
+	std::map<int, std::string> default_error_pages;
 	std::map<int, std::string> error_pages_2;
 	std::vector<LocationConfig> locations;
 	int getPort() const {return listen_port;}
@@ -44,6 +45,7 @@ struct ServerConfig
 		}
 		return false;
 	}
+	void set_default_errors(std::map<int, std::string>& defaultMap);
 };
 
 class ConfigParse

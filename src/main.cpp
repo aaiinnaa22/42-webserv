@@ -6,6 +6,8 @@ bool gSignalClose = false;
 
 void signal_handler(int signal){ (void)signal; gSignalClose = true;}
 
+
+
 int main(int argc, char **argv)
 {
 	std::string	confFile;

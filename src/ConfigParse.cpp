@@ -1,9 +1,31 @@
 #include "../inc/ConfigParse.hpp"
+#include "../inc/Response.hpp"
 
 //TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
 // WE SHALL SEE
 
 //TO DO: VALIDATE BASED ON MAX HEADER AND MAX BODY SIZE
+
+void set_default_errors(std::map<int, std::string>& defaultMap)
+{
+	int defaultCodes[] = {400, 403, 404, 405, 406, 408, 409, 411, 413, 414, 415, 418, 431, 500, 501, 503, 505};
+	for (size_t i = 0; i < std::size(defaultCodes); ++i)
+	{
+		int code = defaultCodes[i];
+		std::string path = "./default/" + std::to_string(code) + ".html";
+
+		std::ifstream file(path);
+		if (!file)
+		{
+			throw std::runtime_error("Default error pages missing");
+		}
+		std::ostringstream buffer;
+		buffer << file.rdbuf();
+		defaultMap[code] = buffer.str();
+		file.close();
+	}
+	getSetDefaultErrorPages(defaultMap);
+}
 
 std::string cleanLine(const std::string &orgLine)
 {
@@ -134,6 +156,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	std::string line;
 	int braceCount = 1;
 	ServerConfig s1;
+	set_default_errors(s1.default_error_pages);
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
@@ -208,11 +231,11 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					if (!std::regex_match(codeString, std::regex(R"(^\d{3}$)")))
 						throw std::runtime_error ("Error code out of range " + codeString);
 					int code = std::stoi(codeString);
-					s1.error_pages[code] = path;
+					s1.error_pages_2[code] = path;
 					std::ifstream file("./" + path);
 					if (!file)
 					{
-						std::cerr << "Failed to open error page: " << path << std::endl;
+						throw std::runtime_error("Failed to open error page");
 					}
 					else
 					{
@@ -250,7 +273,6 @@ int ConfigParse::confParse(std::string &filename)
 	}
 	std::string line;
 	bool insideBlock = false;
-	// std::set<std::pair<std::string, int>> seenPairs; 
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);

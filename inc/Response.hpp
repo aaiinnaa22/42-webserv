@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "../inc/ConfigParse.hpp"
+#include "webserv.hpp"
 
 class Response
 {
@@ -32,7 +34,6 @@ class Response
 
 		void buildErrorResponse(int statusCode, int clientFd, std::map<int, std::string> errorPages = {});
 		void sendResponse(int clientFd); //public?
-
 		Response() = default;
 		Response(int code);
 		Response(int code, const std::string& body);
