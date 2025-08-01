@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:49:33 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 20:00:33 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 16:31:34 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -81,7 +81,7 @@ void HttpRequest::setContentType(int postCheck)
 	{
 		//DOES NOT WORK??!!
 		if (fileExtension != "jpg" && fileExtension != "jpeg" && fileExtension != "png"
-				&& fileExtension != "gif" && fileExtension != "pdf")
+				&& fileExtension != "gif" && fileExtension != "pdf" && fileExtension != "txt")
 			throw ErrorResponseException(415);
 	}
 	if (fileExtension == "html" || fileExtension == "css")

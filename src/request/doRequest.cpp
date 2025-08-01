@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 15:15:21 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 17:18:54 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -121,6 +121,25 @@ static bool fileNameIsSafe(std::string fileName)
 	return (true);
 }
 
+static std::string generateSuccessPostHtml(std::string pathToNewFile)
+{
+	std::string html = 
+		"<!DOCTYPE html>\n"
+		"<html lang=\"en\">\n"
+		"<head>\n"
+		"  <meta charset=\"UTF-8\" />\n"
+		"  <title>Upload Successful</title>\n"
+		"</head>\n"
+		"<body>\n"
+		"  <h1>File Uploaded Successfully</h1>\n"
+		"  <p>Your file was uploaded and is now available at:</p>\n"
+		"  <a href=\"" + pathToNewFile + "\">View the uploaded file</a>\n"
+		"</body>\n"
+		"</html>\n";
+
+    return html;
+}
+
 void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
 {
 	ssize_t charsWritten;
@@ -173,10 +192,15 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 	close(fd);
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
-	std::string successHtml = "<h1>File successfully uploaded:)</h1> <p>Go back to home page: <a href=\"/\">Home</a>";
-	httpResponse.setResponseBody(successHtml);
+	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, currentLocation.root);
+	//errcheck?
+	std::string relativePath = "/" + getRelativePath.string();
 	httpResponse.setResponseHeader("content-type", "text/html");
-	httpResponse.setStatus(200);
+	httpResponse.setResponseHeader("location", relativePath);
+	encodeUrl(relativePath);
+	std::string htmlBody = generateSuccessPostHtml(relativePath);
+	httpResponse.setResponseBody(htmlBody);
+	httpResponse.setStatus(201);
 }
 
 void HttpRequest::methodDelete(void)
@@ -237,12 +261,11 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		decodeUrl(originalPath);
 		std::cout << "QUERY STR: " << queryString << std::endl;
 		if (!currentLocation.root.empty())
-		{
 			makeRootAbsolute(currentLocation.root);
-			completePath = currentLocation.root + originalPath;
-		}
 		else 
-			completePath = config.root + originalPath;
+			currentLocation.root = config.root;
+		
+		completePath = currentLocation.root + originalPath;
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
 		checkPathIsSafe();
 		checkMethodAllowed();

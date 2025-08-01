@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/06 13:19:50 by hskrzypi          #+#    #+#             */
-/*   Updated: 2025/07/23 15:52:26 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 16:39:49 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,6 +14,7 @@
 
 const std::unordered_map<int, std::string> Response::reasonPhrases = {
 	{200, "OK"},
+	{201, "Created"},
 	{204, "No Content"},
     {400, "Bad Request"},
     {403, "Forbidden"},
@@ -165,14 +166,14 @@ void Response::sendResponse(int clientFd)
 	std::string contentLength;
 	contentLength = std::to_string(body.size());
 
-	//.at for reasonPhrases can fail, but should not happen since its hardcoded so that statuscode always exists in reasonPhrases
+	//getHeader fail?
 	responseHeaders = httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n";
 	if (statusCode != 204)
 	{
 		responseHeaders += "Content-Type: " + getHeader("content-type") + "\r\n" +
 						"Content-Length: " + contentLength + "\r\n";
 	}
-	if (statusCode > 299 && statusCode < 400)
+	if ((statusCode > 299 && statusCode < 400) || (statusCode == 201))
 		responseHeaders += "Location: " + getHeader("location") + "\r\n";	
 	
 	
