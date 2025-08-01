@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 20:19:15 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 15:15:21 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -54,8 +54,11 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	{
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_name[0] == '.')
 			continue ;
-		std::string strEntry(entry->d_name);
-		html_content = "<li><a href=\"" + strEntry + "\">" + strEntry + "</a></li>\n"; 
+		std::string strEntryLink(entry->d_name);
+		std::string strEntryName = strEntryLink;
+		encodeUrl(strEntryLink);
+		escapeHtml(strEntryName);
+		html_content = "<li><a href=\"" + strEntryLink + "\">" + strEntryName + "</a></li>\n"; 
 		responseBody += html_content;
 	}
 
@@ -120,18 +123,15 @@ static bool fileNameIsSafe(std::string fileName)
 
 void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
 {
-	//post a directory?
 	ssize_t charsWritten;
 	int fd;
 	std::string requestContentType;
 
-	//dont allow to post to directory in case of "normal request" (aka not multipart)
 	if (headers.find("content-type") != headers.end())
 		requestContentType = headers.at("content-type");
 	if (requestContentType.find("multipart/form-data") != std::string::npos) //enough?
 	{
 		//make a dir or what? always /upload? 
-		//check the other headers? and more
 		if (formFields.find("filename") != bodyHeaders.end())
 		{
 			std::string nameOfNewFile = formFields.at("filename");
@@ -143,8 +143,6 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 		}
 		else 
 			throw ErrorResponseException(400); //?
-		
-		//change the content-type header acco to whats find in multipart body
 		if (bodyHeaders.find("Content-Type") != bodyHeaders.end())
 		{
 			headers["content-type"] = bodyHeaders.at("Content-Type");
@@ -170,10 +168,7 @@ void HttpRequest::methodPost(void) //has to get changed for web browser requests
 	//truncate??
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
 	if (fd == -1)
-	{
-		std::cout << "CANNOT OPEN IN POST" << std::endl;
 		throw ErrorResponseException(500);
-	}
 	charsWritten = write(fd, body.c_str(), body.size());//checks for 0 
 	close(fd);
 	if (charsWritten == -1)
@@ -210,6 +205,10 @@ void HttpRequest::methodDelete(void)
 
 void HttpRequest::isRedirection(void)
 {
+	if (currentLocation.redirect_code < 301 || currentLocation.redirect_code > 308)
+		throw ErrorResponseException(500);
+	if (currentLocation.redirect_code > 303 && currentLocation.redirect_code < 307)
+		throw ErrorResponseException(500); 
 	if (originalPath.starts_with(currentLocation.path))
 		originalPath.erase(0, currentLocation.path.size());
 	std::string newPath = currentLocation.redirect_target + originalPath;
@@ -234,10 +233,16 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 				isRedirection();
 				return (httpResponse);
 		}
-		decodeUrl(originalPath);
 		checkQueryString();
-		makeRootAbsolute(currentLocation.root);
-		completePath = currentLocation.root + originalPath;
+		decodeUrl(originalPath);
+		std::cout << "QUERY STR: " << queryString << std::endl;
+		if (!currentLocation.root.empty())
+		{
+			makeRootAbsolute(currentLocation.root);
+			completePath = currentLocation.root + originalPath;
+		}
+		else 
+			completePath = config.root + originalPath;
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
 		checkPathIsSafe();
 		checkMethodAllowed();
@@ -249,7 +254,6 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		}
 		max_client_body_size = config.max_client_body_size;
 		std::string cgiExtension = checkRequestIsCgi();
-		std::cout << "cgi is checked now, cgiExtension is: " << cgiExtension << std::endl;
 		if (cgiExtension != "")
 			doCgi(config, cgiExtension, server);
 		else if (method == "GET")

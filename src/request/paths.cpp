@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:45:45 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/24 15:17:31 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 13:22:07 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,7 +32,14 @@ void HttpRequest::checkPathIsSafe(void) //??
 	}
 	catch (const std::filesystem::filesystem_error& e) 
 	{
-		throw ErrorResponseException(403);
+		if (errno == ENOENT || errno == ENOTDIR)
+			throw ErrorResponseException(404);
+		else if (errno == EACCES)
+			throw ErrorResponseException(403);
+		else if (errno == ENAMETOOLONG)
+			throw ErrorResponseException(414);
+		else 
+			throw ErrorResponseException(500);
 	}
 	if (canonicalPath.string().find(currentLocation.root) != 0)
 		throw ErrorResponseException(403);
@@ -82,7 +89,8 @@ void HttpRequest::makeRootAbsolute(std::string& myRoot)
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		throw ErrorResponseException(403);
+		//i try this on conf roots = server error
+		throw ErrorResponseException(500);
 	}
 }
 

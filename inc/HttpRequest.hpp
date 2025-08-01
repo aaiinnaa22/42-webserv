@@ -60,6 +60,8 @@ class HttpRequest
 		std::string checkRequestIsCgi(void);
 		struct stat safeStat(std::string statThis);
 		void isRedirection(void);
+		void escapeHtml(std::string& encodeThis);
+		void encodeUrl(std::string& encodeThis);
 
 	public:
 		std::map<std::string, std::string> bodyHeaders;

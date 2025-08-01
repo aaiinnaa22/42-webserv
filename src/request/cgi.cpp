@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 12:03:04 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 12:23:16 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -87,7 +87,12 @@ void HttpRequest::checkCgiPath(std::string checkThisPath, bool tryIsExecutable)
 	if (tryIsExecutable)
 	{
 		if (access(checkThisPath.c_str(), X_OK) == -1)
-			throw ErrorResponseException(403);
+		{
+			if (errno == EACCES)
+				throw ErrorResponseException(403);
+			else 
+				throw ErrorResponseException(500);
+		}
 	}
 }
 
