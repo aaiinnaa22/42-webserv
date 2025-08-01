@@ -46,10 +46,10 @@ int main(int argc, char **argv)
 			{
 				if (servers[i].root.empty() || servers[i].getHost().empty() || servers[i].getPort() == 0)
 					throw std::runtime_error("Info missing in the server block");
-				// std::cout << servers[i].listen_port << " --> listen port\n";
-				// std::cout << servers[i].host << " --> host\n";
-				// std::cout << servers[i].server_names[0] << "-->server names\n";
-				// std::cout << servers[i].root << "--> root\n";
+				std::cout << servers[i].listen_port << " --> listen port\n";
+				std::cout << servers[i].host << " --> host\n";
+				std::cout << servers[i].server_names[0] << "-->server names\n";
+				std::cout << servers[i].root << "--> root\n";
 				
 			}
 			Server server;
