@@ -23,9 +23,11 @@
 	}
 	for (size_t s = 0; _serverfd[s] != 0 ; s++)
 	{	
-		close(_serverfd[s]);
+		if (_serverfd[s] != -1)
+			close(_serverfd[s]);
 	}
-	close(_epollfd);
+	if (_epollfd != -1)
+		close(_epollfd);
  }
 
 /*  ...Fcntl
@@ -298,56 +300,51 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 	*/
 int Server::start_epoll(std::vector<ServerConfig> servers)
 {
+	if ((_epollfd = epoll_create(42)) < 0)
+		throw std::runtime_error("Error! Failed to create epoll");
+
 	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
-	_epollfd = epoll_create(42); // creates new epoll instance and returns fd for it;
-	if (_epollfd == -1)
-		return -1;
 	struct epoll_event ev;
 	ev.events = EPOLLIN; 
+
 	for(size_t i = 0; i < servers.size(); i++){
 		ev.data.fd = _serverfd[i];
-		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0 ){ // Double check this error handling??
-			close(_epollfd);
-			return -1;}
-	}
-	//Setting up server time stamp
-	struct tm datetime{};
-  	int seconds = mktime(&datetime);
-	std::cout << seconds << std::endl;
-	std::time_t result = std::time(nullptr);
-    std::cout << std::asctime(std::localtime(&result)) << result << " Server start time stamp\n";
+		if (epoll_ctl(_epollfd, EPOLL_CTL_ADD, _serverfd[i], &ev) < 0)
+			throw std::runtime_error("Error! Failed to add server to epoll");}
 
-	while(gSignalClose == false) // SIGINT this global is controlled by signal handler in main 
+	struct tm datetime{};
+	datetime.tm_mday = 1;
+  	if (mktime(&datetime) == -1)
+		throw std::runtime_error("Error! Failed to create timestamp");
+
+	while(gSignalClose == false)
 	{
-		_read_count = epoll_wait(_epollfd, events, 1000, 1000); // returns number of events that are ready to be handled
+		if ((_read_count = epoll_wait(_epollfd, events, 1000, 1000)) < 0 && errno != EINTR) // returns number of events that are ready to be handled
+			throw std::runtime_error("Error! Epoll wait failed");
 		if (_read_count != 0)
 		try{
-			handle_epoll_event(events, servers);
-		}
-		catch (ChildError& e)
-		{
-			throw ChildError(500);
-		}
+			handle_epoll_event(events, servers);}
+		catch (ChildError& e){
+			throw ChildError(500);}
 		for (auto it = connections.begin(); it != connections.end(); ) {
 			int fd = it->first;
 			auto& conn = it->second;
-
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 60) {
+				if (time_out_timer > 5) {
 					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
 					struct epoll_event ev;
     				ev.events = EPOLLOUT;
     				ev.data.fd = fd;
-    				epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev);
-				}
-			}
+    				if ((epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev)) < 0){
+						close_connection(fd); // Server breaking land mine
+				}}
 			++it;
 		}
-	}
+	}}
 	return 0;
 }
 /* ....Initiliazing Socket. 
@@ -397,57 +394,48 @@ int32_t Server::get_networkaddress(std::string host)
 	std::vector<int> seglist;
 	while(std::getline(host1, segment, '.'))
 	{	
-		i = std::stoi(segment); // Things can fail here??
+		i = std::stoi(segment);
+		if (i >= 256)
+			throw std::runtime_error("Error! Ip out of range");
 		seglist.push_back(i);
 		i = 0;
 	}
 	uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] << 8) | seglist[3];
-	//std::cout << ip_host_order << std::endl;
 	return ip_host_order;
 }
 
 void Server::startServer(std::vector<ServerConfig> servers)
 {
+	try{
 	for(size_t i = 0; i < servers.size(); i++)
 	{
-		_serverfd[i] = socket(AF_INET, SOCK_STREAM, 0);
-		if (_serverfd[i] < 0){
+		if ((_serverfd[i] = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 			throw std::runtime_error("Error! Failed to create socket"); 
-		}
-		// at this point I have serverfd open so it needs to be closed.
-		int check = set_non_blocking(_serverfd[i]);
-		if (check < 0){
-			close (_serverfd[i]);
-			throw std::runtime_error("Error! Socket is kill");
-		}
-		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
-		if (check < 0){
-			close (_serverfd[i]);
+
+		if (set_non_blocking(_serverfd[i]) < 0)
+			throw std::runtime_error("Error! Failed ot set socket non blocking");
+
+		if ((setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on))) < 0)
 			throw std::runtime_error("Error! Failed to create setsockopt");
-		}
-		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEPORT, (char *)&_on, sizeof(_on));
-		if (check < 0){
-			close (_serverfd[i]);
-			throw std::runtime_error("Error! Failed to create share port");
-		}
-		struct sockaddr_in serverAddress; // memset struct to 0 ??
+	
+		if ((setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEPORT, (char *)&_on, sizeof(_on))) < 0)
+			throw std::runtime_error("Error! Failed to share port, how selfish");
+	
+		struct sockaddr_in serverAddress;
 		memset(&serverAddress, 0, sizeof(sockaddr_in));
-		serverAddress.sin_family = AF_INET;  // ipV4
+		serverAddress.sin_family = AF_INET;
 		serverAddress.sin_port = htons(servers[i].listen_port); 
 		uint32_t ip_address = get_networkaddress(servers[i].host);
-		serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
-		std::cout << "Server ip: " << servers[i].host << " Port: " << servers[i].listen_port <<  std::endl;
-		check = bind(_serverfd[i], (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-		if (check == -1){
-			close(_serverfd[i]);
-			std::cout << errno << std::endl;
+		serverAddress.sin_addr.s_addr = htonl(ip_address);
+
+		if (bind(_serverfd[i], (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
 			throw std::runtime_error("Error! Failed to bind server socket");
-		}
-		check = listen(_serverfd[i], 128);
-		if (check < 0){
-			close (_serverfd[i]);
+		
+		if (listen(_serverfd[i], 128) < 0)
 			throw std::runtime_error("Error! Failed to start listening server socket");
 	}
+	} catch (const std::runtime_error& e){
+		throw;
 	}
 	int check1 = 0;
 	try{
