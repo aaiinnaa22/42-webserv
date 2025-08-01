@@ -57,7 +57,6 @@ std::string extractConfig(const std::string &line, const std::string &keyword)
 		return value;
 	}
 	return "";
-	//throw std::runtime_error("issues in config parsing");
 }
 
 LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, std::vector<LocationConfig> &locations)
@@ -68,7 +67,7 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	locBlock.redirect_code = -1;
 
 	size_t pos = line.find("location");
-	size_t brace = line.find('{', pos);//check for braces and position??
+	size_t brace = line.find('{', pos);
 	std::string path = line.substr(pos + 8, brace - (pos + 8));
 	locBlock.path = trim(path);
 	int braceCount = 1;
@@ -134,20 +133,24 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		if (braceCount == 1)
 			break;
 	}
-	// std::cout << "Parsed location block:\n";
-	// std::cout << "  path: " << locBlock.path << "\n";
-	// std::cout << "  root: " << locBlock.root << "\n";
-	// std::cout << "  index: " << locBlock.index << "\n";
-	// std::cout << "  methods:";
-	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
-	// 	std::cout << " " << locBlock.methods[i];
-	// std::cout << "\n";
-	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
-	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
-	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
-	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
-	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
-	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	std::cout << "Parsed location block:\n";
+	std::cout << "  path: " << locBlock.path << "\n";
+	std::cout << "  root: " << locBlock.root << "\n";
+	std::cout << "  index: " << locBlock.index << "\n";
+	std::cout << "  methods:";
+	for (size_t i = 0; i < locBlock.methods.size(); ++i)
+		std::cout << " " << locBlock.methods[i];
+	std::cout << "\n";
+	std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
+	std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
+	std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
+	std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
+	std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
+	std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	if (locBlock.methods.empty()) 
+		throw std::runtime_error("Method info missing from a location block");
+	if (locBlock.path.empty())
+		throw std::runtime_error("Path info missing from a location block");
 	return locBlock;
 }
 
@@ -173,20 +176,20 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		std::string value = extractConfig(line, "listen");
 		if (!value.empty())
 		{
-			size_t colonPos = value.find(':');
-			if (colonPos != std::string::npos)
+			std::regex listenRegex(R"(^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$)");
+			if (std::regex_match(value, listenRegex))
 			{
-				s1.host = value.substr(0, colonPos);
-				s1.listen_port = std::stoi(value.substr(colonPos + 1));
+				size_t colonPos = value.find(':');
+				if (colonPos != std::string::npos)
+				{
+					s1.host = value.substr(0, colonPos);
+					s1.listen_port = std::stoi(value.substr(colonPos + 1));
+					if (s1.listen_port > 65535)
+						throw std::runtime_error("Port out of valid range");
+				}
 			}
 			else
-			{
-				s1.listen_port = std::stoi(value);
-				if (s1.host.empty())
-					s1.host = "0.0.0.0";
-			}
-			//std::cout << s1.host << "-->host from struct\n";
-			//std::cout << s1.listen_port << "-->listen port from struct\n";
+				throw std::runtime_error("Please add ip and port in format ddd.d.d.d:dddd");
 		}
 		value = extractConfig(line, "server_name");
 		if (!value.empty())
@@ -206,13 +209,12 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "max_client_body_size");
 		if (!value.empty())
 		{
-			s1.max_client_body_size = std::stoi(value);//TODO: check	
+			s1.max_client_body_size = std::stoi(value);	
 		}
-		// std::cout << s1.max_client_body_size << "-->body size from struct\n";
 		value = extractConfig(line, "max_client_header_size");
 		if (!value.empty())
 		{
-			s1.max_client_header_size = std::stoi(value);//TODO: check
+			s1.max_client_header_size = std::stoi(value);
 		}
 		value = extractConfig(line, "root");
 		if (!value.empty())
@@ -233,7 +235,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					int code = std::stoi(codeString);
 					s1.error_pages_2[code] = path;
 					std::ifstream file("./" + path);
-					// std::cout << "Path1: " << path << std::endl;
 					if (!file)
 					{
 						throw std::runtime_error("Failed to open error page");
@@ -252,12 +253,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
            	break;
         }
 	}
-	// std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
-	// for (const auto &entry : s1.error_pages_2)
-	// {
-	// 	std::cout << entry.first << " => " << entry.second << " --> error page\n";
-	// }
-
 	return s1;
 }
 
@@ -269,8 +264,7 @@ int ConfigParse::confParse(std::string &filename)
 	file.open(filename);
 	if (file.fail())
 	{
-		std::cout << "Error opening config file" << std::endl;
-		return 1;
+		throw(std::runtime_error("Error opening config file"));
 	}
 	std::string line;
 	bool insideBlock = false;
@@ -298,6 +292,8 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find('{') != std::string::npos)
 			{
 				ServerConfig s = parseServerBlock(file);
+				if (s.root.empty())
+					throw std::runtime_error("Root missing in the server block");
 				servers.push_back(s);
 				insideBlock = false;
 			}
