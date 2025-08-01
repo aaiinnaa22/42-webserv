@@ -23,7 +23,8 @@
 	}
 	for (size_t s = 0; _serverfd[s] != 0 ; s++)
 	{	
-		close(_serverfd[s]);
+		if (_serverfd[s] != -1)
+			close(_serverfd[s]);
 	}
 	close(_epollfd);
  }
@@ -395,57 +396,54 @@ int32_t Server::get_networkaddress(std::string host)
 	std::vector<int> seglist;
 	while(std::getline(host1, segment, '.'))
 	{	
-		i = std::stoi(segment); // Things can fail here??
+		i = std::stoi(segment);
+		if (i >= 256)
+			throw std::runtime_error("Error! Ip out of range");
 		seglist.push_back(i);
 		i = 0;
 	}
 	uint32_t ip_host_order = (seglist[0] << 24) | (seglist[1] << 16) | (seglist[2] << 8) | seglist[3];
-	//std::cout << ip_host_order << std::endl;
 	return ip_host_order;
 }
 
 void Server::startServer(std::vector<ServerConfig> servers)
 {
+	try{
 	for(size_t i = 0; i < servers.size(); i++)
 	{
 		_serverfd[i] = socket(AF_INET, SOCK_STREAM, 0);
-		if (_serverfd[i] < 0){
+		if (_serverfd[i] < 0)
 			throw std::runtime_error("Error! Failed to create socket"); 
-		}
-		// at this point I have serverfd open so it needs to be closed.
+
 		int check = set_non_blocking(_serverfd[i]);
-		if (check < 0){
-			close (_serverfd[i]);
-			throw std::runtime_error("Error! Socket is kill");
-		}
-		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on));
-		if (check < 0){
-			close (_serverfd[i]);
+		if (check < 0)
+			throw std::runtime_error("Error! Failed ot set socket non blocking");
+
+		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEADDR, (char *)&_on, sizeof(_on)); 
+		if (check < 0)
 			throw std::runtime_error("Error! Failed to create setsockopt");
-		}
+	
 		check = setsockopt(_serverfd[i], SOL_SOCKET, SO_REUSEPORT, (char *)&_on, sizeof(_on));
-		if (check < 0){
-			close (_serverfd[i]);
-			throw std::runtime_error("Error! Failed to create share port");
-		}
-		struct sockaddr_in serverAddress; // memset struct to 0 ??
+		if (check < 0)
+			throw std::runtime_error("Error! Failed to share port, how selfish");
+	
+		struct sockaddr_in serverAddress;
 		memset(&serverAddress, 0, sizeof(sockaddr_in));
-		serverAddress.sin_family = AF_INET;  // ipV4
+		serverAddress.sin_family = AF_INET;
 		serverAddress.sin_port = htons(servers[i].listen_port); 
 		uint32_t ip_address = get_networkaddress(servers[i].host);
-		serverAddress.sin_addr.s_addr = htonl(ip_address); // All possible available ip addresses, needs network byte order
+		serverAddress.sin_addr.s_addr = htonl(ip_address);
+
 		std::cout << "Server ip: " << servers[i].host << " Port: " << servers[i].listen_port <<  std::endl;
 		check = bind(_serverfd[i], (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-		if (check == -1){
-			close(_serverfd[i]);
-			std::cout << errno << std::endl;
+		if (check == -1)
 			throw std::runtime_error("Error! Failed to bind server socket");
-		}
-		check = listen(_serverfd[i], 128);
-		if (check < 0){
-			close (_serverfd[i]);
+		
+		if (listen(_serverfd[i], 128) < 0)
 			throw std::runtime_error("Error! Failed to start listening server socket");
 	}
+	} catch (const std::runtime_error& e){
+		throw;
 	}
 	int check1 = 0;
 	try{
