@@ -107,9 +107,10 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 {
 	(void)clientFd;
 	//WHAT IF text/html is not allowed in request headers???
+	isSent = false;
 	std::cout << "build error response call\n";
 	setStatus(statusCode);
-	setResponseHeader("content-type", "text/html");
+	setResponseHeader("content-type", "text/html");\
 	std::string responseBody;
 	std::map<int, std::string>::const_iterator it = chosenErrorPages.find(statusCode);
 	if (it != chosenErrorPages.end())
