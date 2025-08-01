@@ -65,22 +65,21 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	LocationConfig locBlock;
 	locBlock.dir_listing = false;
 	locBlock.redirect_code = -1;
-
+	std::string path;
 	size_t pos = line.find("location");
 	size_t brace = line.find('{', pos);
-	std::string path = line.substr(pos + 8, brace - (pos + 8));
+	if (brace != std::string::npos)
+		path = line.substr(pos + 8, brace - (pos + 8));
+	else
+		path = line.substr(pos + 8);
 	locBlock.path = trim(path);
-	int braceCount = 1;
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
 		inLine = cleanLine(inLine);
+		// std::cout << "line from locblock getline: " << inLine << std::endl;
 		if (inLine.empty())
 			continue;
-		braceCount += std::count(inLine.begin(), inLine.end(), '{');
-     	braceCount -= std::count(inLine.begin(), inLine.end(), '}');
-		if (braceCount == 0)
-			break;
 		std::string value = extractConfig(inLine, "root");
 		if (!value.empty()) 
 			locBlock.root = value;
@@ -121,7 +120,7 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 			if (spPos != std::string::npos)
 			{
 				std::string redirCode = value.substr(0, spPos);
-				locBlock.redirect_code = std::stoi(redirCode);//to check
+				locBlock.redirect_code = std::stoi(redirCode);
 				locBlock.redirect_target = trim(value.substr(spPos + 1));
 			}
 			else
@@ -130,23 +129,25 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
         		locBlock.redirect_target.clear();
     		}
 		}
-		if (braceCount == 1)
+		if (inLine.find('}') != std::string::npos)
 			break;
+		if (inLine.find("location") != std::string::npos)
+			throw std::runtime_error("Location block misconfigured");
 	}
-	std::cout << "Parsed location block:\n";
-	std::cout << "  path: " << locBlock.path << "\n";
-	std::cout << "  root: " << locBlock.root << "\n";
-	std::cout << "  index: " << locBlock.index << "\n";
-	std::cout << "  methods:";
-	for (size_t i = 0; i < locBlock.methods.size(); ++i)
-		std::cout << " " << locBlock.methods[i];
-	std::cout << "\n";
-	std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
-	std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
-	std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
-	std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
-	std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
-	std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	// std::cout << "Parsed location block:\n";
+	// std::cout << "  path: " << locBlock.path << "\n";
+	// std::cout << "  root: " << locBlock.root << "\n";
+	// std::cout << "  index: " << locBlock.index << "\n";
+	// std::cout << "  methods:";
+	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
+	// 	std::cout << " " << locBlock.methods[i];
+	// std::cout << "\n";
+	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
+	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
+	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
+	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
+	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
+	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
 	if (locBlock.methods.empty()) 
 		throw std::runtime_error("Method info missing from a location block");
 	if (locBlock.path.empty())
@@ -163,6 +164,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
+		// std::cout << "line from server block: " << line << std::endl;
 		if (line.empty())
 			continue;
         braceCount += std::count(line.begin(), line.end(), '{');
@@ -209,12 +211,18 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "max_client_body_size");
 		if (!value.empty())
 		{
-			s1.max_client_body_size = std::stoi(value);	
+			int body_size = std::stoi(value);
+			if (body_size < 1 || body_size > static_cast<int>(s1.max_client_body_size))
+				throw std::runtime_error("Invalid body size in config file");
+			s1.max_client_body_size = body_size;	
 		}
 		value = extractConfig(line, "max_client_header_size");
 		if (!value.empty())
 		{
-			s1.max_client_header_size = std::stoi(value);
+			int header_size = std::stoi(value);
+			if (header_size < 1 || header_size > static_cast<int>(s1.max_client_header_size))
+				throw std::runtime_error("Invalid header size in config file");
+			s1.max_client_header_size = header_size;
 		}
 		value = extractConfig(line, "root");
 		if (!value.empty())
@@ -267,6 +275,17 @@ int ConfigParse::confParse(std::string &filename)
 		throw(std::runtime_error("Error opening config file"));
 	}
 	std::string line;
+	int openBraces = 0;
+	int closeBraces = 0;
+	while (getline(file, line))
+	{
+		openBraces += std::count(line.begin(), line.end(), '{');
+		closeBraces += std::count(line.begin(), line.end(), '}');
+	}
+	if (openBraces != closeBraces || openBraces == 0)
+		throw std::runtime_error("Braces mismatch");
+	file.clear();
+	file.seekg(0, std::ios::beg);
 	bool insideBlock = false;
 	while (std::getline(file, line))
 	{
@@ -280,6 +299,8 @@ int ConfigParse::confParse(std::string &filename)
 				if (line.find('{') != std::string::npos)
 				{
 					ServerConfig s = parseServerBlock(file);
+					// if (s.root.empty() || s.getHost().empty() || s.getPort() == 0)
+					// 	throw std::runtime_error("Info missing in the server block");
 					servers.push_back(s);
 				}
 				else
@@ -292,13 +313,13 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find('{') != std::string::npos)
 			{
 				ServerConfig s = parseServerBlock(file);
-				if (s.root.empty())
-					throw std::runtime_error("Root missing in the server block");
+				// if (s.root.empty() || s.getHost().empty() || s.getPort() == 0)
+				// 	throw std::runtime_error("Info missing in the server block");
 				servers.push_back(s);
 				insideBlock = false;
 			}
 			else
-				throw(std::runtime_error("Error: expected '{' after server directive\n"));
+				throw(std::runtime_error("Error in server block structure\n"));
 		}
 	}
 	file.close();
