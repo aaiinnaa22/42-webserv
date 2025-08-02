@@ -1,11 +1,6 @@
 #include "../inc/ConfigParse.hpp"
 #include "../inc/Response.hpp"
 
-//TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
-// WE SHALL SEE
-
-//TO DO: VALIDATE BASED ON MAX HEADER AND MAX BODY SIZE
-
 void set_default_errors(std::map<int, std::string>& defaultMap)
 {
 	int defaultCodes[] = {400, 403, 404, 405, 406, 408, 409, 411, 413, 414, 415, 418, 431, 500, 501, 503, 505};
@@ -38,6 +33,16 @@ std::string cleanLine(const std::string &orgLine)
 	return line;
 }
 
+bool isSingleBraceLine(const std::string& line)
+{
+	std::string cleaned = cleanLine(line);
+	if (cleaned == "{")
+		return true;
+	if (cleaned == "}")
+		return true;
+	return false;
+}
+
 std::string trim(const std::string &toTrim)
 {
 	size_t pre = toTrim.find_first_not_of(" \t\n\r");
@@ -53,6 +58,11 @@ std::string extractConfig(const std::string &line, const std::string &keyword)
 	if (pos != std::string::npos)
 	{
 		std::string value = line.substr(pos + keyword.length());
+
+		size_t semicolonPos = value.find(';');
+		if (semicolonPos != std::string::npos)
+			value = value.substr(0, semicolonPos);
+
 		value = trim(value);
 		return value;
 	}
@@ -264,6 +274,39 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	return s1;
 }
 
+void confSyntaxCheck(std::ifstream &file)
+{
+	static const std::set<std::string> validDirectives = {"server", "listen", "server_name", "max_client_body_size",
+	"max_client_header_size", "index", "root", "error_page", "location", "methods", "dir_listing", 
+	"cgi_path_python", "cgi_path_php", "upload", "return"};
+
+	std::string line;
+	int lineNumber = 0;
+	while (std::getline(file, line)) 
+	{
+		lineNumber++;
+
+		std::string cleaned = cleanLine(line);
+
+		if (cleaned.empty())
+			continue;
+
+		if (cleaned == "{" || cleaned == "}")
+			continue;
+
+		std::istringstream iss(cleaned);
+		std::string firstWord;
+		iss >> firstWord;
+
+		if (validDirectives.find(firstWord) != validDirectives.end())
+			continue;
+		throw std::runtime_error("Syntax error in config file at line " + std::to_string(lineNumber));
+	}
+
+	file.clear();
+	file.seekg(0, std::ios::beg);
+}	
+
 int ConfigParse::confParse(std::string &filename)
 {
 	if (std::filesystem::path(filename).extension() != ".conf")
@@ -279,6 +322,11 @@ int ConfigParse::confParse(std::string &filename)
 	int closeBraces = 0;
 	while (getline(file, line))
 	{
+		if (line.find('{') != std::string::npos || line.find('}') != std::string::npos)
+		{
+		if (!isSingleBraceLine(line))
+			throw std::runtime_error("Braces must appear alone on their own line: " + line);
+		}
 		openBraces += std::count(line.begin(), line.end(), '{');
 		closeBraces += std::count(line.begin(), line.end(), '}');
 	}
@@ -286,6 +334,7 @@ int ConfigParse::confParse(std::string &filename)
 		throw std::runtime_error("Braces mismatch");
 	file.clear();
 	file.seekg(0, std::ios::beg);
+	confSyntaxCheck(file);
 	bool insideBlock = false;
 	while (std::getline(file, line))
 	{
@@ -299,8 +348,6 @@ int ConfigParse::confParse(std::string &filename)
 				if (line.find('{') != std::string::npos)
 				{
 					ServerConfig s = parseServerBlock(file);
-					// if (s.root.empty() || s.getHost().empty() || s.getPort() == 0)
-					// 	throw std::runtime_error("Info missing in the server block");
 					servers.push_back(s);
 				}
 				else
@@ -313,8 +360,6 @@ int ConfigParse::confParse(std::string &filename)
 			if (line.find('{') != std::string::npos)
 			{
 				ServerConfig s = parseServerBlock(file);
-				// if (s.root.empty() || s.getHost().empty() || s.getPort() == 0)
-				// 	throw std::runtime_error("Info missing in the server block");
 				servers.push_back(s);
 				insideBlock = false;
 			}
