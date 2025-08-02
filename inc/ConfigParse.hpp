@@ -12,7 +12,7 @@
 
 struct LocationConfig
 {
-	std::string path = "/";
+	std::string path = "";
 	std::string root = "";
 	std::string index = "";
 	std::vector<std::string> methods;

@@ -203,7 +203,9 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				try
 				{
 					if (!conn.getResponse().isSent)
+					{
 						conn.getResponse().sendResponse(fd);
+					}
 					if (conn.getResponse().isSent)
 					{
 						if (!conn.getIsAlive())

@@ -1,11 +1,6 @@
 #include "../inc/ConfigParse.hpp"
 #include "../inc/Response.hpp"
 
-//TO DO SUNDAY: struct has to be accessible from all over the program - should it be an object? a static struct? 
-// WE SHALL SEE
-
-//TO DO: VALIDATE BASED ON MAX HEADER AND MAX BODY SIZE
-
 void set_default_errors(std::map<int, std::string>& defaultMap)
 {
 	int defaultCodes[] = {400, 403, 404, 405, 406, 408, 409, 411, 413, 414, 415, 418, 431, 500, 501, 503, 505};
@@ -38,6 +33,16 @@ std::string cleanLine(const std::string &orgLine)
 	return line;
 }
 
+bool isSingleBraceLine(const std::string& line)
+{
+	std::string cleaned = cleanLine(line);
+	if (cleaned == "{")
+		return true;
+	if (cleaned == "}")
+		return true;
+	return false;
+}
+
 std::string trim(const std::string &toTrim)
 {
 	size_t pre = toTrim.find_first_not_of(" \t\n\r");
@@ -53,11 +58,15 @@ std::string extractConfig(const std::string &line, const std::string &keyword)
 	if (pos != std::string::npos)
 	{
 		std::string value = line.substr(pos + keyword.length());
+
+		size_t semicolonPos = value.find(';');
+		if (semicolonPos != std::string::npos)
+			value = value.substr(0, semicolonPos);
+
 		value = trim(value);
 		return value;
 	}
 	return "";
-	//throw std::runtime_error("issues in config parsing");
 }
 
 LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, std::vector<LocationConfig> &locations)
@@ -66,22 +75,18 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	LocationConfig locBlock;
 	locBlock.dir_listing = false;
 	locBlock.redirect_code = -1;
-
+	std::string path;
 	size_t pos = line.find("location");
-	size_t brace = line.find('{', pos);//check for braces and position??
-	std::string path = line.substr(pos + 8, brace - (pos + 8));
+
+	path = line.substr(pos + 8);
 	locBlock.path = trim(path);
-	int braceCount = 1;
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
 		inLine = cleanLine(inLine);
+		//std::cout << "line from locblock getline: " << inLine << std::endl;
 		if (inLine.empty())
 			continue;
-		braceCount += std::count(inLine.begin(), inLine.end(), '{');
-     	braceCount -= std::count(inLine.begin(), inLine.end(), '}');
-		if (braceCount == 0)
-			break;
 		std::string value = extractConfig(inLine, "root");
 		if (!value.empty()) 
 			locBlock.root = value;
@@ -122,7 +127,7 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 			if (spPos != std::string::npos)
 			{
 				std::string redirCode = value.substr(0, spPos);
-				locBlock.redirect_code = std::stoi(redirCode);//to check
+				locBlock.redirect_code = std::stoi(redirCode);
 				locBlock.redirect_target = trim(value.substr(spPos + 1));
 			}
 			else
@@ -131,8 +136,10 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
         		locBlock.redirect_target.clear();
     		}
 		}
-		if (braceCount == 1)
+		if (inLine.find('}') != std::string::npos)
 			break;
+		if (inLine.find("location") != std::string::npos)
+			throw std::runtime_error("Location block misconfigured");
 	}
 	// std::cout << "Parsed location block:\n";
 	// std::cout << "  path: " << locBlock.path << "\n";
@@ -148,6 +155,10 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
 	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
 	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	if (locBlock.methods.empty()) 
+		throw std::runtime_error("Method info missing from a location block");
+	if (locBlock.path.empty())
+		throw std::runtime_error("Path info missing from a location block");
 	return locBlock;
 }
 
@@ -160,6 +171,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
+		//std::cout << "line from server block: " << line << std::endl;
 		if (line.empty())
 			continue;
         braceCount += std::count(line.begin(), line.end(), '{');
@@ -173,20 +185,20 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		std::string value = extractConfig(line, "listen");
 		if (!value.empty())
 		{
-			size_t colonPos = value.find(':');
-			if (colonPos != std::string::npos)
+			std::regex listenRegex(R"(^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$)");
+			if (std::regex_match(value, listenRegex))
 			{
-				s1.host = value.substr(0, colonPos);
-				s1.listen_port = std::stoi(value.substr(colonPos + 1));
+				size_t colonPos = value.find(':');
+				if (colonPos != std::string::npos)
+				{
+					s1.host = value.substr(0, colonPos);
+					s1.listen_port = std::stoi(value.substr(colonPos + 1));
+					if (s1.listen_port > 65535)
+						throw std::runtime_error("Port out of valid range");
+				}
 			}
 			else
-			{
-				s1.listen_port = std::stoi(value);
-				if (s1.host.empty())
-					s1.host = "0.0.0.0";
-			}
-			//std::cout << s1.host << "-->host from struct\n";
-			//std::cout << s1.listen_port << "-->listen port from struct\n";
+				throw std::runtime_error("Please add ip and port in format ddd.d.d.d:dddd");
 		}
 		value = extractConfig(line, "server_name");
 		if (!value.empty())
@@ -206,13 +218,18 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "max_client_body_size");
 		if (!value.empty())
 		{
-			s1.max_client_body_size = std::stoi(value);//TODO: check	
+			int body_size = std::stoi(value);
+			if (body_size < 1 || body_size > static_cast<int>(s1.max_client_body_size))
+				throw std::runtime_error("Invalid body size in config file");
+			s1.max_client_body_size = body_size;	
 		}
-		// std::cout << s1.max_client_body_size << "-->body size from struct\n";
 		value = extractConfig(line, "max_client_header_size");
 		if (!value.empty())
 		{
-			s1.max_client_header_size = std::stoi(value);//TODO: check
+			int header_size = std::stoi(value);
+			if (header_size < 1 || header_size > static_cast<int>(s1.max_client_header_size))
+				throw std::runtime_error("Invalid header size in config file");
+			s1.max_client_header_size = header_size;
 		}
 		value = extractConfig(line, "root");
 		if (!value.empty())
@@ -233,7 +250,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					int code = std::stoi(codeString);
 					s1.error_pages_2[code] = path;
 					std::ifstream file("./" + path);
-					// std::cout << "Path1: " << path << std::endl;
 					if (!file)
 					{
 						throw std::runtime_error("Failed to open error page");
@@ -252,14 +268,41 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
            	break;
         }
 	}
-	// std::cout << "Total locations parsed: " << s1.locations.size() << std::endl;
-	// for (const auto &entry : s1.error_pages_2)
-	// {
-	// 	std::cout << entry.first << " => " << entry.second << " --> error page\n";
-	// }
-
 	return s1;
 }
+
+void confSyntaxCheck(std::ifstream &file)
+{
+	static const std::set<std::string> validDirectives = {"server", "listen", "server_name", "max_client_body_size",
+	"max_client_header_size", "index", "root", "error_page", "location", "methods", "dir_listing", 
+	"cgi_path_python", "cgi_path_php", "upload", "return"};
+
+	std::string line;
+	int lineNumber = 0;
+	while (std::getline(file, line)) 
+	{
+		lineNumber++;
+
+		std::string cleaned = cleanLine(line);
+
+		if (cleaned.empty())
+			continue;
+
+		if (cleaned == "{" || cleaned == "}")
+			continue;
+
+		std::istringstream iss(cleaned);
+		std::string firstWord;
+		iss >> firstWord;
+
+		if (validDirectives.find(firstWord) != validDirectives.end())
+			continue;
+		throw std::runtime_error("Syntax error in config file at line " + std::to_string(lineNumber));
+	}
+
+	file.clear();
+	file.seekg(0, std::ios::beg);
+}	
 
 int ConfigParse::confParse(std::string &filename)
 {
@@ -269,10 +312,26 @@ int ConfigParse::confParse(std::string &filename)
 	file.open(filename);
 	if (file.fail())
 	{
-		std::cout << "Error opening config file" << std::endl;
-		return 1;
+		throw(std::runtime_error("Error opening config file"));
 	}
 	std::string line;
+	int openBraces = 0;
+	int closeBraces = 0;
+	while (getline(file, line))
+	{
+		if (line.find('{') != std::string::npos || line.find('}') != std::string::npos)
+		{
+		if (!isSingleBraceLine(line))
+			throw std::runtime_error("Braces must appear alone on their own line: " + line);
+		}
+		openBraces += std::count(line.begin(), line.end(), '{');
+		closeBraces += std::count(line.begin(), line.end(), '}');
+	}
+	if (openBraces != closeBraces || openBraces == 0)
+		throw std::runtime_error("Braces mismatch");
+	file.clear();
+	file.seekg(0, std::ios::beg);
+	confSyntaxCheck(file);
 	bool insideBlock = false;
 	while (std::getline(file, line))
 	{
@@ -283,13 +342,7 @@ int ConfigParse::confParse(std::string &filename)
 		{
 			if (line.find("server") != std::string::npos) 
 			{
-				if (line.find('{') != std::string::npos)
-				{
-					ServerConfig s = parseServerBlock(file);
-					servers.push_back(s);
-				}
-				else
-					insideBlock = true;
+				insideBlock = true;
 				continue;
 			}
 		}
@@ -302,7 +355,7 @@ int ConfigParse::confParse(std::string &filename)
 				insideBlock = false;
 			}
 			else
-				throw(std::runtime_error("Error: expected '{' after server directive\n"));
+				throw(std::runtime_error("Error in server block structure\n"));
 		}
 	}
 	file.close();
