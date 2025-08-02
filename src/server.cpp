@@ -216,7 +216,9 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 							struct epoll_event ev;
 							ev.events = EPOLLIN;
 							ev.data.fd = fd;
-							epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev); //epoll_ctl can fail and return -1,  close connection? throw something? reset connection state?
+							if(epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev) < 0) {
+								std::cerr << "Failed to modify epoll: " << fd << std::endl; 
+								close_connection(fd,ERASECON);}
 						}
 					}
 				}
@@ -238,6 +240,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		else if ((events[i].events & EPOLLHUP )) // Should this be if -- also testing
 		{
+			std::cerr << "We actually got here wow!" << fd << std::endl;
 			close_connection(fd,ERASECON);
 			continue ;
 		}
