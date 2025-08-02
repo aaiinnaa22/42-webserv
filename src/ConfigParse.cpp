@@ -77,17 +77,14 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	locBlock.redirect_code = -1;
 	std::string path;
 	size_t pos = line.find("location");
-	size_t brace = line.find('{', pos);
-	if (brace != std::string::npos)
-		path = line.substr(pos + 8, brace - (pos + 8));
-	else
-		path = line.substr(pos + 8);
+
+	path = line.substr(pos + 8);
 	locBlock.path = trim(path);
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
 		inLine = cleanLine(inLine);
-		// std::cout << "line from locblock getline: " << inLine << std::endl;
+		//std::cout << "line from locblock getline: " << inLine << std::endl;
 		if (inLine.empty())
 			continue;
 		std::string value = extractConfig(inLine, "root");
@@ -174,7 +171,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
-		// std::cout << "line from server block: " << line << std::endl;
+		//std::cout << "line from server block: " << line << std::endl;
 		if (line.empty())
 			continue;
         braceCount += std::count(line.begin(), line.end(), '{');
@@ -345,13 +342,7 @@ int ConfigParse::confParse(std::string &filename)
 		{
 			if (line.find("server") != std::string::npos) 
 			{
-				if (line.find('{') != std::string::npos)
-				{
-					ServerConfig s = parseServerBlock(file);
-					servers.push_back(s);
-				}
-				else
-					insideBlock = true;
+				insideBlock = true;
 				continue;
 			}
 		}

@@ -49,9 +49,9 @@ int main(int argc, char **argv)
 				// std::cout << servers[i].listen_port << " --> listen port\n";
 				// std::cout << servers[i].host << " --> host\n";
 				// std::cout << servers[i].server_names[0] << "-->server names\n";
-				std::cout << "server names below: \n";
-				for (std::vector<std::string>::const_iterator it = servers[i].server_names.begin(); it != servers[i].server_names.end(); ++it)
-					std::cout << *it << std::endl;
+				// std::cout << "server names below: \n";
+				// for (std::vector<std::string>::const_iterator it = servers[i].server_names.begin(); it != servers[i].server_names.end(); ++it)
+				// 	std::cout << *it << std::endl;
 				// std::cout << servers[i].root << "--> root\n";
 			}
 			Server server;
