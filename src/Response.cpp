@@ -205,7 +205,7 @@ void Response::sendResponse(int clientFd)
 	if (sending == -1)
 	{
 		std::cout << "SEND FAILED" << std::endl;
-		throw std::runtime_error("");
+		throw std::exception();
 	}
 	if (statusCode != 204 && (statusCode < 300 || statusCode > 399))
 	{
@@ -213,7 +213,7 @@ void Response::sendResponse(int clientFd)
 		if (sending == -1)
 		{
 			std::cout << "SEND FAILED" << std::endl;
-			throw std::runtime_error("");
+			throw std::exception();
 		}
 	}
 	if (sending != -1)

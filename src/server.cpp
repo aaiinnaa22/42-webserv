@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <ctime>
 
- Server::Server() : _on(1), _epollfd(0), _read_count(0), _testflag(0) {
+ Server::Server() : _on(1), _epollfd(0), _read_count(0), _testflag(0){
 	for (int i = 0; i < 5; i++){
 		_serverfd[i] = 0;}
  }
@@ -74,11 +74,15 @@ int Server::set_non_blocking(int fd)
 
 */
 
-void Server::close_connection(int fd){
+void Server::close_connection(int fd, int flag){
+	if ((epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL)) < 0)
+		std::cerr << "Error! Failed to remove fd from epoll" << std::endl;
+	if (close(fd) < 0)
+		std::cerr << "Error! close_connection close()" << std::endl;
+	if (flag == ERASECON)
+		connections.erase(fd);
 	std::cout << "Connection closed: " << fd << std::endl;
-	epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL); // can technically fail? 
-	close(fd);
-	connections.erase(fd);
+
 }
 
 void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerConfig> servers)
@@ -121,7 +125,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 				if (!connections.try_emplace(clientfd, clientfd, matching_servers).second){
 					std::cerr << "Failed to insert connection for fd " << clientfd << std::endl;
-					close_connection(clientfd);
+					close_connection(clientfd,ERASECON);
 					continue;
 				}
 				auto it = connections.find(clientfd);
@@ -143,7 +147,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			int bytes_read = recv(fd, buffer, sizeof(buffer),0);
 			if (bytes_read < 0){
 				std::cerr << "recv failed on: " << fd << std::endl;
-				close_connection(fd);
+				close_connection(fd,ERASECON);
 				continue ;
 			}
 			auto it = connections.find(fd);
@@ -162,7 +166,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 						ev.data.fd = fd;
 						if (epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev) < 0 ){
 							std::cerr << "Failed to modify epoll: " << fd << std::endl; 
-							close_connection(fd);
+							close_connection(fd,ERASECON);
 						}
 					}
 				}
@@ -182,7 +186,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 			}
 			if (bytes_read == 0)
-			 	close_connection(fd);
+			 	close_connection(fd,ERASECON);
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
@@ -203,10 +207,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					if (conn.getResponse().isSent)
 					{
 						if (!conn.getIsAlive())
-						{
-							close_connection(fd);
-							// break <- check if needed
-						}
+							close_connection(fd,ERASECON);
 						else
 						{
 							conn.resetState();
@@ -229,13 +230,13 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				catch (...)
 				{
 					std::cerr << "Failed to send response for fd " << fd << std::endl;
-					close_connection(fd); //test
+					close_connection(fd,ERASECON);
 				}
 			}
 		}
 		else if ((events[i].events & EPOLLHUP )) // Should this be if -- also testing
 		{
-			close_connection(fd);
+			close_connection(fd,ERASECON);
 			continue ;
 		}
 	}
@@ -330,16 +331,17 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 5) {
-					std::cout << "Closing connection TIMEOUT " << fd << std::endl;
+				if (time_out_timer > 60) {
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
 					struct epoll_event ev;
     				ev.events = EPOLLOUT;
     				ev.data.fd = fd;
-    				if ((epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev)) < 0){
-						close_connection(fd); // Server breaking land mine
-				}}
+    				if ((epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd+6, &ev)) < 0){
+						close_connection(fd,KEEPCON);
+						it = connections.erase(it);
+						continue;
+					}}
 			++it;
 		}
 	}}

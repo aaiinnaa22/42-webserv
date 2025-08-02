@@ -38,7 +38,13 @@ class Server {
         int32_t get_networkaddress(std::string host);
         std::vector<int> get_open_fds() const;
 
-        void close_connection(int fd);
+        void close_connection(int fd,int flag);
+
+        enum eraseconnection
+		{
+			KEEPCON,
+            ERASECON
+		};
 };
 
 #endif
