@@ -77,6 +77,7 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 	locBlock.redirect_code = -1;
 	std::string path;
 	size_t pos = line.find("location");
+	std::set<std::string> seenDirectives;
 
 	path = line.substr(pos + 8);
 	locBlock.path = trim(path);
@@ -88,13 +89,21 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		if (inLine.empty())
 			continue;
 		std::string value = extractConfig(inLine, "root");
-		if (!value.empty()) 
+		// if (!value.empty() && seenDirectives.count("root"))
+		// 	std::cout << "duplicated directive: root\n";
+		if (!value.empty() && !seenDirectives.count("root")) 
+		{
 			locBlock.root = value;
+			seenDirectives.insert("root");
+		}
 		value = extractConfig(inLine, "index");
-		if (!value.empty()) 
+		if (!value.empty() && !seenDirectives.count("index"))
+		{
 			locBlock.index = value;
+			seenDirectives.insert("index");
+		}
 		value = extractConfig(inLine, "methods");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("methods"))
 		{
 			size_t start = 0;
 			while (start < value.length())
@@ -107,21 +116,34 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 					locBlock.methods.push_back(oneMethod);
 				start = end + 1;
 			}
+			seenDirectives.insert("methods");
 		}
 		value = extractConfig(inLine, "cgi_path_php");
-		if (!value.empty()) 
+		if (!value.empty() && !seenDirectives.count("cgi_path_php"))
+		{ 
 			locBlock.cgi_path_php = value;
+			seenDirectives.insert("cgi_path_php");
+		}
 		value = extractConfig(inLine, "cgi_path_python");
-		if (!value.empty()) 
+		if (!value.empty() && !seenDirectives.count("cgi_path_python")) 
+		{
 			locBlock.cgi_path_python = value;
-		value = extractConfig(inLine, "upload_dir");
-		if (!value.empty())
+			seenDirectives.insert("cgi_path_python");
+		}
+		value = extractConfig(inLine, "upload");
+		if (!value.empty() && !seenDirectives.count("upload_dir"))
+		{
 			locBlock.upload_dir = value;
+			seenDirectives.insert("upload_dir");
+		}
 		value = extractConfig(inLine, "dir_listing");
-		if (!value.empty()) 
+		if (!value.empty() && !seenDirectives.count("dir_listing"))
+		{ 
 			locBlock.dir_listing = (value == "on") ? true : false;
+			seenDirectives.insert("dir_listing");
+		}
 		value = extractConfig(inLine, "return");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("return"))
 		{
 			size_t spPos = value.find(' ');
 			if (spPos != std::string::npos)
@@ -135,26 +157,27 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
         		locBlock.redirect_code = -1;
         		locBlock.redirect_target.clear();
     		}
+			seenDirectives.insert("return");
 		}
 		if (inLine.find('}') != std::string::npos)
 			break;
 		if (inLine.find("location") != std::string::npos)
 			throw std::runtime_error("Location block misconfigured");
 	}
-	// std::cout << "Parsed location block:\n";
-	// std::cout << "  path: " << locBlock.path << "\n";
-	// std::cout << "  root: " << locBlock.root << "\n";
-	// std::cout << "  index: " << locBlock.index << "\n";
-	// std::cout << "  methods:";
-	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
-	// 	std::cout << " " << locBlock.methods[i];
-	// std::cout << "\n";
-	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
-	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
-	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
-	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
-	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
-	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	std::cout << "Parsed location block:\n";
+	std::cout << "  path: " << locBlock.path << "\n";
+	std::cout << "  root: " << locBlock.root << "\n";
+	std::cout << "  index: " << locBlock.index << "\n";
+	std::cout << "  methods:";
+	for (size_t i = 0; i < locBlock.methods.size(); ++i)
+		std::cout << " " << locBlock.methods[i];
+	std::cout << "\n";
+	std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
+	std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
+	std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
+	std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
+	std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
+	std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
 	if (locBlock.methods.empty()) 
 		throw std::runtime_error("Method info missing from a location block");
 	if (locBlock.path.empty())
