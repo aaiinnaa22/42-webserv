@@ -164,20 +164,20 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		if (inLine.find("location") != std::string::npos)
 			throw std::runtime_error("Location block misconfigured");
 	}
-	std::cout << "Parsed location block:\n";
-	std::cout << "  path: " << locBlock.path << "\n";
-	std::cout << "  root: " << locBlock.root << "\n";
-	std::cout << "  index: " << locBlock.index << "\n";
-	std::cout << "  methods:";
-	for (size_t i = 0; i < locBlock.methods.size(); ++i)
-		std::cout << " " << locBlock.methods[i];
-	std::cout << "\n";
-	std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
-	std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
-	std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
-	std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
-	std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
-	std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
+	// std::cout << "Parsed location block:\n";
+	// std::cout << "  path: " << locBlock.path << "\n";
+	// std::cout << "  root: " << locBlock.root << "\n";
+	// std::cout << "  index: " << locBlock.index << "\n";
+	// std::cout << "  methods:";
+	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
+	// 	std::cout << " " << locBlock.methods[i];
+	// std::cout << "\n";
+	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
+	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
+	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
+	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
+	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
+	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
 	if (locBlock.methods.empty()) 
 		throw std::runtime_error("Method info missing from a location block");
 	if (locBlock.path.empty())
@@ -190,6 +190,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	std::string line;
 	int braceCount = 1;
 	ServerConfig s1;
+	std::set<std::string> seenDirectives;
 	set_default_errors(s1.default_error_pages);
 	while (std::getline(file, line))
 	{
@@ -206,7 +207,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 			continue;
 		}
 		std::string value = extractConfig(line, "listen");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("listen"))
 		{
 			std::regex listenRegex(R"(^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$)");
 			if (std::regex_match(value, listenRegex))
@@ -222,9 +223,10 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 			}
 			else
 				throw std::runtime_error("Please add ip and port in format ddd.d.d.d:dddd");
+			seenDirectives.insert("listen");
 		}
 		value = extractConfig(line, "server_name");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("server_name"))
 		{
 			size_t start = 0;
 			while (start < value.length())
@@ -237,27 +239,32 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					s1.server_names.push_back(oneName);
 				start = end + 1;
 			}
+			seenDirectives.insert("server_name");
 		}
 		value = extractConfig(line, "max_client_body_size");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("max_client_body_size"))
 		{
 			int body_size = std::stoi(value);
 			if (body_size < 1 || body_size > static_cast<int>(s1.max_client_body_size))
 				throw std::runtime_error("Invalid body size in config file");
-			s1.max_client_body_size = body_size;	
+			s1.max_client_body_size = body_size;
+			seenDirectives.insert("max_client_body_size");
 		}
 		value = extractConfig(line, "max_client_header_size");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("max_client_header_size"))
 		{
 			int header_size = std::stoi(value);
 			if (header_size < 1 || header_size > static_cast<int>(s1.max_client_header_size))
 				throw std::runtime_error("Invalid header size in config file");
 			s1.max_client_header_size = header_size;
+			seenDirectives.insert("max_client_header_size");
 		}
 		value = extractConfig(line, "root");
-		if (!value.empty())
+		if (!value.empty() && !seenDirectives.count("root"))
 		{
 			s1.root = value;
+			seenDirectives.insert("root");
+
 		}
 		value = extractConfig(line, "error_page");
 		{

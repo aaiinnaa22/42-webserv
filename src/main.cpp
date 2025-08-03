@@ -53,6 +53,8 @@ int main(int argc, char **argv)
 				std::cout << "Listen port : " << servers[i].listen_port << " and host: " << servers[i].host << std::endl;
 	
 				// std::cout << servers[i].root << "--> root\n";
+				// std::cout << servers[i].max_client_body_size << "--> body size\n";
+				// std::cout << servers[i].max_client_header_size << "--> header size\n";
 				
 			}
 			Server server;
