@@ -39,7 +39,7 @@ class HttpRequest
 		size_t max_client_body_size;
 		Response httpResponse;
 		void methodGet();
-		void methodPost();
+		void methodPost(ServerConfig config);
 		void methodDelete();
 		void doCgi(ServerConfig config, std::string cgiExtension, const Server& server);
 		void setContentType(int postCheck = 0);
@@ -62,6 +62,9 @@ class HttpRequest
 		void isRedirection(void);
 		void escapeHtml(std::string& encodeThis);
 		void encodeUrl(std::string& encodeThis);
+		void postIsMultipartBody();
+		void fixMultipleSlashes(std::string &fixThis);
+		void normalizeConfigPaths();
 
 	public:
 		std::map<std::string, std::string> bodyHeaders;

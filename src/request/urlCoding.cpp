@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:52:57 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 15:11:33 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/04 17:15:45 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,22 +61,24 @@ static std::string charToPercentHex(unsigned char c)
 
 void HttpRequest::encodeUrl(std::string& encodeThis)
 {
-	std::string encoded;
+    std::string encoded;
 
     for (size_t i = 0; i < encodeThis.length(); ++i)
     {
         unsigned char c = encodeThis[i];
-        // Unreserved chars according to RFC 3986 don't get encoded: //SAME FOR DECODING OR WHAT?
+        // unreserved characters according to RFC 3986
         if ((c >= 'A' && c <= 'Z') ||
             (c >= 'a' && c <= 'z') ||
             (c >= '0' && c <= '9') ||
-            c == '-' || c == '_' || c == '.' || c == '~')
+            c == '-' || c == '_' || c == '.' || c == '~' ||
+            c == '/')  // allow '/' unencoded
         {
             encoded += c;
         }
-        else if (c == ' ') {
-            // Spaces are usually encoded as '+'
-            encoded += '+';
+        else if (c == ' ')
+        {
+            // encode space as %20, not '+'
+            encoded += "%20";
         }
         else
         {
