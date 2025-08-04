@@ -342,7 +342,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 					struct epoll_event ev;
     				ev.events = EPOLLOUT;
     				ev.data.fd = fd;
-    				if ((epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd+6, &ev)) < 0){
+    				if ((epoll_ctl(_epollfd, EPOLL_CTL_MOD, fd, &ev)) < 0){
 						close_connection(fd,KEEPCON);
 						it = connections.erase(it);
 						continue;
