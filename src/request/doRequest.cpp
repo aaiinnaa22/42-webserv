@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/05 13:12:55 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 16:39:28 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -201,10 +201,12 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 			std::filesystem::path uploadHere = locationRoot / currentLocation.upload_dir;
 			try
 			{
+				std::cout << "upload here: " << uploadHere.string() << std::endl;
 				safeStat(uploadHere.string());
 			}
 			catch (ErrorResponseException& e) 
 			{
+				std::cout << "upload here is not safe" << std::endl;
 				throw ErrorResponseException(500);
 			}
 			completePath = uploadHere.string() + completePath.substr(posOfFile);
@@ -221,6 +223,7 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 	}
 	catch (ErrorResponseException& e)
 	{
+		std::cout << "path post is not safe" << std::endl;
 		throw ErrorResponseException(500);
 	}
 	setContentType(1);
@@ -231,7 +234,9 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 	close(fd);
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
-	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root);
+	std::cout << "i posted to: " << completePath << std::endl;
+	//not correct!
+	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root); //config.root
 	std::string relativePath = "/" + getRelativePath.string();
 	fixMultipleSlashes(relativePath);
 	encodeUrl(relativePath);
@@ -285,13 +290,14 @@ void HttpRequest::isRedirection(void)
 
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
+	//check correct error paths for non default
 	dump();
 	try
 	{
 		originalPath = path;
 		path.clear();
 		
-		makeRootAbsolute(config.root);
+		//makeRootAbsolute(config.root);
 		//setErrorPages(config.error_pages_2, config.root);
 		//setErrorPages(config.error_pages, config.root);
 		checkQueryString();
@@ -310,7 +316,10 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		{
 			makeRootAbsolute(currentLocation.root);
 			if (currentLocation.root.find(config.root) != 0)
+			{
+				std::cout << "loc root not in server root" << std::endl;
 				throw ErrorResponseException(500);
+			}
 		}
 		else
 			currentLocation.root = config.root;
@@ -327,9 +336,14 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 				decodeUrl(body);
 		}
 		max_client_body_size = config.max_client_body_size;
+		std::cout << "hello 1" << std::endl;
 		std::string cgiExtension = checkRequestIsCgi();
+		std::cout << "hello 2" << std::endl;
 		if (cgiExtension != "")
+		{
+			std::cout << "CGI TIME" << std::endl;
 			doCgi(config, cgiExtension, server);
+		}
 		else if (method == "GET")
 			methodGet();
 		else if (method == "POST")

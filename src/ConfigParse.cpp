@@ -1,5 +1,6 @@
 #include "../inc/ConfigParse.hpp"
 #include "../inc/Response.hpp"
+#include "../inc/HttpRequest.hpp"
 
 void set_default_errors(std::map<int, std::string>& defaultMap)
 {
@@ -262,12 +263,39 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "root");
 		if (!value.empty() && !seenDirectives.count("root"))
 		{
+			HttpRequest::makeRootAbsolute(value);
 			s1.root = value;
 			seenDirectives.insert("root");
 
 		}
 		value = extractConfig(line, "error_page");
 		{
+			/*
+				server error_pages need to be relative to the server root
+				if error page = /dir/404.html
+				and server root = ./aina_website
+				real error page path = ./aina_website/dir/404.html
+
+				also: 
+				checking it error page (root + error page path) exists is unneccesary
+				1. root is not validated before in doRequest, so checking only error page
+					but not root at this stage does not make sense
+				2. A not existing error page is not a concern at this time (according to chatgpt),
+					if an error occurs, and the server error page does not exist, default error should
+					be thrown
+
+				But error page will not be a file, but instead content in a buffer.
+				
+				Solution:
+				1. Check that server root exists
+				2. root + error path
+				3. Check that this path is safe 
+					(it does not escape the root, it exists, it has permissions etc.)
+				4. If everything is good, error file content -> buffer
+					Else, throw error!
+
+
+			*/
 			if (!value.empty())
 			{
 				std::istringstream iss(value);
@@ -278,8 +306,13 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					if (!std::regex_match(codeString, std::regex(R"(^\d{3}$)")))
 						throw std::runtime_error ("Error code out of range " + codeString);
 					int code = std::stoi(codeString);
+					path = s1.root + "/" + path;
+					std::filesystem::path canonicalErrorPath;
+					canonicalErrorPath = std::filesystem::canonical(path);
+					if (canonicalErrorPath.string().find(s1.root) != 0)
+						throw std::runtime_error("Error page escapes server root");
 					s1.error_pages_2[code] = path;
-					std::ifstream file("./" + path);
+					std::ifstream file(path);
 					if (!file)
 					{
 						throw std::runtime_error("Failed to open error page");

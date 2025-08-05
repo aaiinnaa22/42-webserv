@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 12:23:16 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 15:03:43 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -365,6 +365,8 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 			}
 			close(stdinFd);
 			close(stdoutFd);
+			if (chdir(currentLocation.root.c_str()) != 0) //test
+				throw ChildError(500, "chdir");
 			execve(interpreterPath.c_str(), argv, envp.data());
 			std::cerr << "Execve call fail, cleaning fds...\n";
 			throw ChildError(500, "execve");
