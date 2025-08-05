@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/25 17:27:43 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/01 12:23:16 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,6 +24,7 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	envVariables.push_back("SERVER_NAME=" + config.server_names.at(0));
 	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
 	envVariables.push_back("PATH_INFO=" + pathInfo);
+	envVariables.push_back("REDIRECT_STATUS=200"); //for php-cgi?
 
 	if (method == "GET")
 		envVariables.push_back("QUERY_STRING=" + queryString);
@@ -77,14 +78,22 @@ std::string HttpRequest::getPathInfo(std::string cgiExtension)
 }
 
 
-void HttpRequest::checkCgiPath(std::string checkThisPath)
+void HttpRequest::checkCgiPath(std::string checkThisPath, bool tryIsExecutable)
 {
 	struct stat pathStat;
 	pathStat = safeStat(checkThisPath);
 	if (!S_ISREG(pathStat.st_mode))
 		throw ErrorResponseException(404);
-	if (access(checkThisPath.c_str(), X_OK) == -1)
-		throw ErrorResponseException(403);
+	if (tryIsExecutable)
+	{
+		if (access(checkThisPath.c_str(), X_OK) == -1)
+		{
+			if (errno == EACCES)
+				throw ErrorResponseException(403);
+			else 
+				throw ErrorResponseException(500);
+		}
+	}
 }
 
 
@@ -129,7 +138,6 @@ static void parseCgiStatus(std::string status)
 
 static std::string parseCgiContentType(std::string contentType)
 {
-	//Content-Type: type "/" subtype *( OWS ";" OWS parameter )?? the ;param?? for content-length?
 	int valueTime = 0;
 	std::string finalValue;
 	
@@ -144,6 +152,8 @@ static std::string parseCgiContentType(std::string contentType)
 		}
 		else if (valueTime == 1 && (isalpha(contentType[i]) || contentType[i] == '/'))
 			finalValue += contentType[i];
+		else if (contentType[i] == ';')
+				break ; //Content-type: text/html;charset=UTF-8
 		else 
 			throw ErrorResponseException(500);
 
@@ -250,7 +260,7 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 	std::string cgiHeaders;
 	std::pair<std::string, int> headerResult;
 
-	size_t pos = cgiOutput.find("\r\n\r\n"); //try out ex body first like body, headers or body headers body
+	size_t pos = cgiOutput.find("\r\n\r\n");
 	size_t findLen = 4;
 
 	if (pos == std::string::npos) 
@@ -273,11 +283,7 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 		cgiBody.resize(headerResult.second);
 	}
 	
-	std::cout << "CGI PARSING IS DONE\nSTATUS: 200" << "\"\nCONTENT TYPE VALUE: \"" << headerResult.first << "\"" << "CONTENT LENGTH: \""
-	<< headerResult.second << "\"" << std::endl;
-	std::cout << "CGI RESPONSE BODY: " << cgiBody << std::endl;
 	checkContentType(headerResult.first);
-	
 	httpResponse.setResponseHeader("content-type", headerResult.first);
 	httpResponse.setResponseBody(cgiBody);
 	httpResponse.setStatus(200);
@@ -299,7 +305,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	else if (cgiExtension == ".php")
 		interpreterPath = currentLocation.cgi_path_php; 
 
-	checkCgiPath(interpreterPath);
 	pathInfo = getPathInfo(cgiExtension);
 	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
 	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
@@ -324,7 +329,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	close (stdinWriteFd);
 	int stdinFd;
 	int stdoutFd;
-	stdinFd = open("tempStdin", O_RDONLY);
+	stdinFd = open("tempStdin", O_RDONLY); //test? with post
 	if (stdinFd == -1)
 		throw ErrorResponseException(500);
 	stdoutFd = open("tempStdout", O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -333,6 +338,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		close(stdinFd);
 		throw ErrorResponseException(500);
 	}
+	//int stderrDebug = open("tempStderrDEBUG", O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	pid_t pid = fork();
 	if (pid == -1)
 		throw ErrorResponseException(500);
@@ -343,6 +349,8 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		(void)server;
 		try
 		{
+			//dup2(stderrDebug, STDERR_FILENO);
+			//close(stderrDebug);
 			if (dup2(stdinFd, STDIN_FILENO) == -1)
 			{
 				close(stdinFd);
@@ -375,7 +383,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	{
 		close(stdinFd);
 		close(stdoutFd);
-		int status;
+		int status = 0;
 		const int TIMEOUT_SECONDS = 10;
 		std::time_t start_time = std::time(nullptr);
 		while (true)
@@ -397,6 +405,15 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 			usleep(500000);
 		}
 		std::cout << "CHILD STATUS: " << status << std::endl;
+		//test begin
+		// int stdErrdebugOpen = open("tempStderrDEBUG", O_RDONLY);
+		// std::cout << "DEBUG CGI ERROR OUTPUT" << std::endl;
+		// int readDebug;
+		// char buf[1000];
+		// while ((readDebug = read(stdErrdebugOpen, buf, sizeof(buf))) > 0)
+		// 	std::cout << buf << std::endl;
+		// std::cout << "DEBUG DONE" << std::endl;
+		//test done
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			throw ErrorResponseException(500);
 
@@ -415,6 +432,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 			throw ErrorResponseException(500);
 		}
 		close(stdoutReadFd);
+		std::cout << "time to parse cgi output" << std::endl;
 		parseCgiOutput(cgiOutput);
 	}
 }
@@ -425,9 +443,10 @@ std::string HttpRequest::checkRequestIsCgi(void)
 	size_t pos = completePath.size();
 	bool isCgi = false;
 	std::string cgiExtension;
+	std::string pathToTry;
 	while (pos > 0)
 	{
-		std::string pathToTry = completePath.substr(0, pos);
+		pathToTry = completePath.substr(0, pos);
 		try 
 		{
 			checkCgiPath(pathToTry);
@@ -455,9 +474,17 @@ std::string HttpRequest::checkRequestIsCgi(void)
 	}
 	if (isCgi == false)
 		return ("");
-	if (cgiExtension == ".py" && !currentLocation.cgi_path_python.empty())
-		return (cgiExtension);
-	if (cgiExtension == ".php" && !currentLocation.cgi_path_php.empty())
-		return (cgiExtension);
-	return ("");
+	checkCgiPath(pathToTry, true);
+	try 
+	{
+		if (cgiExtension == ".py")
+			checkCgiPath(currentLocation.cgi_path_python, true);
+		else if (cgiExtension == ".php")
+			checkCgiPath(currentLocation.cgi_path_php, true);
+	}
+	catch (ErrorResponseException& e)
+	{
+		throw ErrorResponseException(500);
+	}
+	return (cgiExtension);
 }

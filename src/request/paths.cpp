@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:45:45 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/24 15:17:31 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/04 19:15:50 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,16 +32,28 @@ void HttpRequest::checkPathIsSafe(void) //??
 	}
 	catch (const std::filesystem::filesystem_error& e) 
 	{
+		if (errno == ENOENT || errno == ENOTDIR)
+			throw ErrorResponseException(404);
+		else if (errno == EACCES)
+			throw ErrorResponseException(403);
+		else if (errno == ENAMETOOLONG)
+			throw ErrorResponseException(414);
+		else 
+			throw ErrorResponseException(500);
+	}
+	std::cout << "IS ROOT THE FIRST THING OF PATH?" << std::endl;
+	std::cout << "path: " << canonicalPath.string() << std::endl;
+	std::cout << "root: " << currentLocation.root << std::endl;
+	if (canonicalPath.string().find(currentLocation.root) != 0)
+	{
+		std::cout << "root not in path" << std::endl;
 		throw ErrorResponseException(403);
 	}
-	if (canonicalPath.string().find(currentLocation.root) != 0)
-		throw ErrorResponseException(403);
 }
 
 int HttpRequest::checkPathIsDirectory(void)
 {
 	struct stat path_stat = safeStat(completePath);
-	std::cout << "IS PATH DIR?!" << std::endl;
 	return (S_ISDIR(path_stat.st_mode));
 }
 
@@ -63,7 +75,6 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 				match_found = true;
 			}
 		}
-		//in case of exact match, return that?
 	}
 	if (!match_found)
 		throw ErrorResponseException(404);
@@ -76,13 +87,18 @@ void HttpRequest::makeRootAbsolute(std::string& myRoot)
 	{
 		if (root.is_relative())
 			root = std::filesystem::current_path() / root;
+		std::cout << "ROOT: " << root.string() << std::endl;
 		if (!std::filesystem::exists(root))
-			throw ErrorResponseException(404);
+		{
+			std::cout << "root does not exist" << std::endl;
+			throw ErrorResponseException(500);
+		}
 		myRoot = std::filesystem::canonical(root);
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		throw ErrorResponseException(403);
+		std::cout << "THROW MAKE ROOT ABSOLUTE" << std::endl;
+		throw ErrorResponseException(500);
 	}
 }
 
@@ -105,3 +121,29 @@ struct stat HttpRequest::safeStat(std::string statThis)
 	}
 	return (st);
 }
+
+
+void HttpRequest::fixMultipleSlashes(std::string &fixThis)
+{
+	std::string result;
+    bool lastWasSlash = false;
+
+    for (size_t i = 0; i < fixThis.size(); ++i) 
+	{
+        if (fixThis[i] == '/') 
+		{
+            if (!lastWasSlash) 
+			{
+                result += '/';
+                lastWasSlash = true;
+            }
+        } 
+		else 
+		{
+            result += fixThis[i];
+            lastWasSlash = false;
+        }
+    }
+    fixThis = result;
+}
+

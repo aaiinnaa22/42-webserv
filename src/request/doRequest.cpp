@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/07/31 13:51:45 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 13:12:55 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,8 +62,11 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	{
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_name[0] == '.')
 			continue ;
-		std::string strEntry(entry->d_name);
-		html_content = "<li><a href=\"" + strEntry + "\">" + strEntry + "</a></li>\n"; 
+		std::string strEntryLink(entry->d_name);
+		std::string strEntryName = strEntryLink;
+		encodeUrl(strEntryLink);
+		escapeHtml(strEntryName);
+		html_content = "<li><a href=\"" + strEntryLink + "\">" + strEntryName + "</a></li>\n"; 
 		responseBody += html_content;
 	}
 
@@ -82,6 +85,8 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 //! poll for read and open
 void HttpRequest::methodGet(void)
 {
+	//what if both dir listing and index is on in conf?
+	std::cout << "hello from method GET" << std::endl;
 	ssize_t charsRead;
 	int fd;
 	char buffer[1000];
@@ -89,7 +94,18 @@ void HttpRequest::methodGet(void)
 	if (checkPathIsDirectory() == 1)
 	{
 		if (!currentLocation.index.empty())
-			completePath = completePath + currentLocation.index;
+		{
+			completePath += currentLocation.index;
+			std::cout << "index html path: " << completePath << std::endl;
+			try 
+			{
+				checkPathIsSafe();
+			}
+			catch (ErrorResponseException& e) 
+			{
+				throw ErrorResponseException(500);
+			}
+		}
 		else if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();
@@ -101,7 +117,6 @@ void HttpRequest::methodGet(void)
 		else
 			throw ErrorResponseException(403);
 	}
-
 	fd = open(completePath.c_str(), O_RDONLY);
 	if (fd == -1)
 		throw ErrorResponseException(404);
@@ -126,49 +141,105 @@ static bool fileNameIsSafe(std::string fileName)
 	return (true);
 }
 
-void HttpRequest::methodPost(void) //has to get changed for web browser requests (multipart body)
+static std::string generateSuccessPostHtml(std::string pathToNewFile)
 {
-	//post a directory?
+	std::string html = 
+		"<!DOCTYPE html>\n"
+		"<html lang=\"en\">\n"
+		"<head>\n"
+		"  <meta charset=\"UTF-8\" />\n"
+		"  <title>Upload Successful</title>\n"
+		"</head>\n"
+		"<body>\n"
+		"  <h1>File Uploaded Successfully</h1>\n"
+		"  <p>Your file was uploaded and is now available at:</p>\n"
+		"  <a href=\"" + pathToNewFile + "\">View the uploaded file</a>\n"
+		"</body>\n"
+		"</html>\n";
+
+    return html;
+}
+
+void HttpRequest::postIsMultipartBody()
+{
+	//make a dir or what? always /upload? 
+	if (formFields.find("filename") != bodyHeaders.end())
+	{
+		std::string nameOfNewFile = formFields.at("filename"); //what if name is ../../?
+		if (fileNameIsSafe(nameOfNewFile))
+			completePath += "/" + nameOfNewFile;
+		else 
+			throw ErrorResponseException(400); //bad request?
+	}
+	else 
+		throw ErrorResponseException(400); //?
+	if (bodyHeaders.find("Content-Type") != bodyHeaders.end())
+		headers["content-type"] = bodyHeaders.at("Content-Type");
+	else 
+		headers.erase("content-type");
+}
+
+void HttpRequest::methodPost(ServerConfig config) //has to get changed for web browser requests (multipart body)
+{
 	ssize_t charsWritten;
 	int fd;
 	std::string requestContentType;
 
-	//dont allow to post to directory in case of "normal request" (aka not multipart)
+	std::cout << "TIME TO POST!" << std::endl;
 	if (headers.find("content-type") != headers.end())
 		requestContentType = headers.at("content-type");
-	else 
-		std::cout << "I FOUND CONTENT_TYPE " << std::endl;
 	if (requestContentType.find("multipart/form-data") != std::string::npos) //enough?
+		postIsMultipartBody();
+	if (completePath.ends_with('/'))
+		throw ErrorResponseException(403);
+	size_t posOfFile = completePath.rfind('/');
+	if (posOfFile != std::string::npos) //what if npos? or empty?
 	{
-		//make a dir or what? always /upload? 
-		//check the other headers? and more
-		if (formFields.find("filename") != bodyHeaders.end())
+		if (!currentLocation.upload_dir.empty()) //what if multipart?
 		{
-			std::string nameOfNewFile = formFields.at("filename");
-			std::cout << "NAME OF NEW FILE: " << nameOfNewFile << std::endl;
-			if (fileNameIsSafe(nameOfNewFile))
+			std::filesystem::path locationRoot = currentLocation.root;
+			std::filesystem::path uploadHere = locationRoot / currentLocation.upload_dir;
+			try
 			{
-				completePath += "/" + nameOfNewFile;
+				safeStat(uploadHere.string());
 			}
-			else 
-				throw ErrorResponseException(400); //bad request?
+			catch (ErrorResponseException& e) 
+			{
+				throw ErrorResponseException(500);
+			}
+			completePath = uploadHere.string() + completePath.substr(posOfFile);
 		}
-		//else?
+		else
+		{
+			std::string clientPathToPostTo = completePath.substr(0, posOfFile);
+			safeStat(clientPathToPostTo);
+		} 
 	}
-	std::cout << "NEW COMPLETE PATH FROM POST: " << completePath << std::endl;
-	setContentType(1); //not even do this for post? cause i dont respond with the file
-	//truncate??
-	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
+	try
+	{
+		checkPathIsSafe();
+	}
+	catch (ErrorResponseException& e)
+	{
+		throw ErrorResponseException(500);
+	}
+	setContentType(1);
+	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd == -1)
 		throw ErrorResponseException(500);
 	charsWritten = write(fd, body.c_str(), body.size());//checks for 0 
 	close(fd);
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
-	std::string successHtml = "<h1>File successfully uploaded:)</h1> <p>Go back to home page: <a href=\"/\">Home</a>";
-	httpResponse.setResponseBody(successHtml);
+	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root);
+	std::string relativePath = "/" + getRelativePath.string();
+	fixMultipleSlashes(relativePath);
+	encodeUrl(relativePath);
 	httpResponse.setResponseHeader("content-type", "text/html");
-	httpResponse.setStatus(200);
+	httpResponse.setResponseHeader("location", relativePath);
+	std::string htmlBody = generateSuccessPostHtml(relativePath);
+	httpResponse.setResponseBody(htmlBody);
+	httpResponse.setStatus(201);
 }
 
 void HttpRequest::methodDelete(void)
@@ -197,11 +268,17 @@ void HttpRequest::methodDelete(void)
 
 void HttpRequest::isRedirection(void)
 {
+	if (currentLocation.redirect_code < 301 || currentLocation.redirect_code > 308)
+		throw ErrorResponseException(500);
+	if (currentLocation.redirect_code > 303 && currentLocation.redirect_code < 307)
+		throw ErrorResponseException(500); 
+	fixMultipleSlashes(currentLocation.redirect_target);
 	if (originalPath.starts_with(currentLocation.path))
 		originalPath.erase(0, currentLocation.path.size());
 	std::string newPath = currentLocation.redirect_target + originalPath;
-	std::cout << "NEW PATH :" << newPath << std::endl;
-	std::cout << "STATUS: " << currentLocation.redirect_code << std::endl;
+	encodeUrl(newPath);
+	if (!queryString.empty())
+		newPath += "?" + queryString;
 	httpResponse.setResponseHeader("location", newPath);
 	httpResponse.setStatus(currentLocation.redirect_code);
 }
@@ -213,18 +290,33 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 	{
 		originalPath = path;
 		path.clear();
+		
 		makeRootAbsolute(config.root);
 		//setErrorPages(config.error_pages_2, config.root);
+		//setErrorPages(config.error_pages, config.root);
+		checkQueryString();
+		decodeUrl(originalPath);
+		fixMultipleSlashes(originalPath);
 		findCurrentLocation(config);
+		std::cout << "BASED ON " << originalPath << ", current loc is: " << currentLocation.path << std::endl; 
 		if (currentLocation.redirect_code != -1)
 		{
 				isRedirection();
 				return (httpResponse);
 		}
-		decodeUrl(originalPath);
-		checkQueryString();
-		makeRootAbsolute(currentLocation.root);
-		completePath = currentLocation.root + originalPath;
+		//checkQueryString();
+		//decodeUrl(originalPath);
+		if (!currentLocation.root.empty())
+		{
+			makeRootAbsolute(currentLocation.root);
+			if (currentLocation.root.find(config.root) != 0)
+				throw ErrorResponseException(500);
+		}
+		else
+			currentLocation.root = config.root;
+		std::string pathWithoutLoc = originalPath.substr(currentLocation.path.length());
+		std::filesystem::path pathToUse = std::filesystem::path(currentLocation.root) / pathWithoutLoc;
+		completePath = pathToUse.string();
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
 		checkPathIsSafe();
 		checkMethodAllowed();
@@ -241,7 +333,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		else if (method == "GET")
 			methodGet();
 		else if (method == "POST")
-			methodPost();
+			methodPost(config);
 		else if (method == "DELETE")
 			methodDelete();
 		else
