@@ -270,32 +270,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		}
 		value = extractConfig(line, "error_page");
 		{
-			/*
-				server error_pages need to be relative to the server root
-				if error page = /dir/404.html
-				and server root = ./aina_website
-				real error page path = ./aina_website/dir/404.html
-
-				also: 
-				checking it error page (root + error page path) exists is unneccesary
-				1. root is not validated before in doRequest, so checking only error page
-					but not root at this stage does not make sense
-				2. A not existing error page is not a concern at this time (according to chatgpt),
-					if an error occurs, and the server error page does not exist, default error should
-					be thrown
-
-				But error page will not be a file, but instead content in a buffer.
-				
-				Solution:
-				1. Check that server root exists
-				2. root + error path
-				3. Check that this path is safe 
-					(it does not escape the root, it exists, it has permissions etc.)
-				4. If everything is good, error file content -> buffer
-					Else, throw error!
-
-
-			*/
 			if (!value.empty())
 			{
 				std::istringstream iss(value);

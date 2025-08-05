@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/05 16:39:28 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 19:14:13 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -168,11 +168,17 @@ void HttpRequest::postIsMultipartBody()
 		std::string nameOfNewFile = formFields.at("filename"); //what if name is ../../?
 		if (fileNameIsSafe(nameOfNewFile))
 			completePath += "/" + nameOfNewFile;
-		else 
+		else
+		{
+			std::cout << "filename NOT SAFE" << std::endl;
 			throw ErrorResponseException(400); //bad request?
+		}
 	}
-	else 
+	else
+	{
+		std::cout << "filename not found" << std::endl; 
 		throw ErrorResponseException(400); //?
+	}
 	if (bodyHeaders.find("Content-Type") != bodyHeaders.end())
 		headers["content-type"] = bodyHeaders.at("Content-Type");
 	else 
@@ -235,14 +241,14 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
 	std::cout << "i posted to: " << completePath << std::endl;
-	//not correct!
-	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root); //config.root
-	std::string relativePath = "/" + getRelativePath.string();
-	fixMultipleSlashes(relativePath);
-	encodeUrl(relativePath);
+	//what if the realtive escapes the root?, path shall be without ../../ for loc
+	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root);
+	std::string urlLocOfPost = "/" + getRelativePath.string();
+	fixMultipleSlashes(urlLocOfPost);
+	encodeUrl(urlLocOfPost);
 	httpResponse.setResponseHeader("content-type", "text/html");
-	httpResponse.setResponseHeader("location", relativePath);
-	std::string htmlBody = generateSuccessPostHtml(relativePath);
+	httpResponse.setResponseHeader("location", urlLocOfPost);
+	std::string htmlBody = generateSuccessPostHtml(urlLocOfPost);
 	httpResponse.setResponseBody(htmlBody);
 	httpResponse.setStatus(201);
 }
@@ -291,15 +297,12 @@ void HttpRequest::isRedirection(void)
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
 	//check correct error paths for non default
+	std::cout << "DO REQUEST" << std::endl;
 	dump();
 	try
 	{
 		originalPath = path;
 		path.clear();
-		
-		//makeRootAbsolute(config.root);
-		//setErrorPages(config.error_pages_2, config.root);
-		//setErrorPages(config.error_pages, config.root);
 		checkQueryString();
 		decodeUrl(originalPath);
 		fixMultipleSlashes(originalPath);
@@ -310,8 +313,6 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 				isRedirection();
 				return (httpResponse);
 		}
-		//checkQueryString();
-		//decodeUrl(originalPath);
 		if (!currentLocation.root.empty())
 		{
 			makeRootAbsolute(currentLocation.root);
@@ -323,9 +324,20 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		}
 		else
 			currentLocation.root = config.root;
-		std::string pathWithoutLoc = originalPath.substr(currentLocation.path.length());
-		std::filesystem::path pathToUse = std::filesystem::path(currentLocation.root) / pathWithoutLoc;
-		completePath = pathToUse.string();
+		//std::string pathWithoutLoc = originalPath.substr(currentLocation.path.length());
+		//std::filesystem::path pathToUse = std::filesystem::path(currentLocation.root) / pathWithoutLoc;
+		//completePath = pathToUse.string();
+		//new way test:
+		std::filesystem::path origPath = originalPath;
+		std::filesystem::path locPath = currentLocation.path;
+		if (origPath.string().rfind(locPath.string(), 0) == 0) 
+		{
+			std::filesystem::path remaining = origPath.lexically_relative(locPath);
+			completePath = (std::filesystem::path(currentLocation.root) / remaining).lexically_normal().string();
+		} 
+		else 
+			throw ErrorResponseException(500);
+		//test end
 		std::cout << "COMPLETE PATH: " << completePath << std::endl;
 		checkPathIsSafe();
 		checkMethodAllowed();
@@ -336,14 +348,9 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 				decodeUrl(body);
 		}
 		max_client_body_size = config.max_client_body_size;
-		std::cout << "hello 1" << std::endl;
 		std::string cgiExtension = checkRequestIsCgi();
-		std::cout << "hello 2" << std::endl;
 		if (cgiExtension != "")
-		{
-			std::cout << "CGI TIME" << std::endl;
 			doCgi(config, cgiExtension, server);
-		}
 		else if (method == "GET")
 			methodGet();
 		else if (method == "POST")
