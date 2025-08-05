@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/04 20:09:58 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 13:00:26 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -191,29 +191,32 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 		{
 			std::filesystem::path locationRoot = currentLocation.root;
 			std::filesystem::path uploadHere = locationRoot / currentLocation.upload_dir;
+			try
+			{
+				safeStat(uploadHere.string());
+			}
+			catch (ErrorResponseException& e) 
+			{
+				throw ErrorResponseException(500);
+			}
 			completePath = uploadHere.string() + completePath.substr(posOfFile);
 		}
-		std::cout << "PATH TO POST: " << completePath << std::endl;
-		posOfFile = completePath.rfind('/'); //what if no pos or empty?
-		if (posOfFile != std::string::npos)
+		else
 		{
-			std::string pathToPostTo = completePath.substr(0, posOfFile + 1);
-			safeStat(pathToPostTo);
-		}
+			std::string clientPathToPostTo = completePath.substr(0, posOfFile);
+			safeStat(clientPathToPostTo);
+		} 
 	}
 	try
 	{
-		std::cout << "this path is safe?: " << completePath << std::endl;
 		checkPathIsSafe();
 	}
-	catch (ErrorResponseException& e) //the upload dir root is bad or filename for multipart is bad?
+	catch (ErrorResponseException& e)
 	{
-		std::cout << "check path is safe failed with code " << e.getResponseStatus() << std::endl;
 		throw ErrorResponseException(500);
 	}
-	setContentType(1); //to check content type of file is valid
-	//truncate??
-	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644); //last is chmod persmissions, owner=read and write, others=read, O_CREAT???
+	setContentType(1);
+	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd == -1)
 		throw ErrorResponseException(500);
 	charsWritten = write(fd, body.c_str(), body.size());//checks for 0 
@@ -221,9 +224,7 @@ void HttpRequest::methodPost(ServerConfig config) //has to get changed for web b
 	if (charsWritten == -1)
 		throw ErrorResponseException(500);
 	std::filesystem::path getRelativePath = std::filesystem::relative(completePath, config.root);
-	//errcheck?
 	std::string relativePath = "/" + getRelativePath.string();
-	std::cout << "REALTIVE PATH: " << relativePath << std::endl;
 	fixMultipleSlashes(relativePath);
 	encodeUrl(relativePath);
 	httpResponse.setResponseHeader("content-type", "text/html");
@@ -270,16 +271,12 @@ void HttpRequest::isRedirection(void)
 	encodeUrl(newPath);
 	if (!queryString.empty())
 		newPath += "?" + queryString;
-	std::cout << "NEW PATH :" << newPath << std::endl;
-	std::cout << "STATUS: " << currentLocation.redirect_code << std::endl;
 	httpResponse.setResponseHeader("location", newPath);
 	httpResponse.setStatus(currentLocation.redirect_code);
 }
 
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
-	//cleanup multiple slashes?
-	//when to add query string??!
 	dump();
 	try
 	{
@@ -304,16 +301,10 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		{
 			makeRootAbsolute(currentLocation.root);
 			if (currentLocation.root.find(config.root) != 0)
-			{
-				std::cout << "LOC ROOT OUTSIDE OF SERVER ROOT" << std::endl;
 				throw ErrorResponseException(500);
-			}
 		}
 		else
 			currentLocation.root = config.root;
-		//ALWAYS USE STD::FILEPATH FOR PATHS? instead of std::string
-		std::cout << "CURRENT LOC IS : " << currentLocation.root << std::endl;
-		std::cout << "ORIGINAL PATH IS : " << originalPath << std::endl;
 		std::string pathWithoutLoc = originalPath.substr(currentLocation.path.length());
 		std::filesystem::path pathToUse = std::filesystem::path(currentLocation.root) / pathWithoutLoc;
 		completePath = pathToUse.string();
