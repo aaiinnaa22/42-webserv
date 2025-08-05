@@ -179,7 +179,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					std::cout << "runtime error in parse" << e.what() << std::endl;
 					conn.resetState();
 				}
-				catch (...)//stoi fail in parsing or any other function fails from parseData
+				catch (...)
 				{
 					std::cout << "unusual error with parsing" << std::endl;
 					conn.resetState();
@@ -190,7 +190,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
-			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDINF MESSAFE NOW" << std::endl;
+			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDIND MESSAGE NOW" << std::endl;
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "Not found: " << fd << "\n";
@@ -204,7 +204,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				{
 					if (!conn.getResponse().isSent)
 					{
-						conn.getResponse().sendResponse(fd);
+						conn.getResponse().sendResponse(fd, conn.getIsAlive());
 					}
 					if (conn.getResponse().isSent)
 					{
@@ -229,7 +229,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				catch (std::runtime_error& e)
 				{
 					std::cout << "sending error " << e.what() << std::endl;
-					conn.resetState();
+					close_connection(fd,ERASECON);
 				}
 				catch (...)
 				{

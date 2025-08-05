@@ -129,60 +129,15 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 		setStatus(500);
 	} 	
 	
-
-	
-	// std::cout << "build error test\n";
-	// std::cout << statusCode << "-what funcrion received\n";
-	// std::cout << res.getStatusCode() << "-what is inside response\n";
-	// std::string errorFile;
-	// if (!errorPages.empty() && errorPages.find(statusCode) != errorPages.end())
-	// 	errorFile = errorPages[statusCode];
-	// else
-	// 	errorFile = "./www/error/" + std::to_string(statusCode) + ".html";
-	//ssize_t chars_read;
-	//char buffer[1000];
-	// std::string responseBody;
-	// std::map<int, std::string>::const_iterator it = errorPages.find(statusCode);
-	// if (it != errorPages.end())
-	// 	responseBody = it->second;
-	//epoll?
-	// std::cout << "TRYING TO OPEN ERROR FILE " << errorFile << std::endl;
-	// int fd = open(errorFile.c_str(), O_RDONLY);
-	// if (fd == -1) //but it means not found?!
-	// {
-	// 	std::cout << "BUiLD ERROR ERROR FILE COULDNT GET OPENED" << std::endl;
-	// 	std::string safetyError = "<h1>500 - Internal Server Error</h1>";
-	// 	setResponseBody(safetyError);
-	// 	setStatus(500);
-	// 	// if (sendNow)
-	// 	// 	res.sendResponse(clientFd);
-	// 	return ;
-	// }
-	// while ((chars_read = read(fd, buffer, sizeof(buffer))) > 0)
-	// 	responseBody.append(buffer, chars_read);
-	// close(fd);
-	// if (chars_read == -1)
-	// {
-	// 	std::cout << "RESPONSE BODY FILE IN BUILD ERROR COULDNT GET OPENED" << std::endl;
-	// 	std::string safetyError = "<h1>500 - Internal Server Error</h1>";
-	// 	setResponseBody(safetyError);
-	// 	setStatus(500);
-	// 	// if (sendNow)
-	// 	// 	res.sendResponse(clientFd);
-	// 	return ;
-	// }
 	setResponseBody(responseBody);
 	std::cout << "what i built in built error response\n";
 	std::cout << httpVersion << " " << statusCode << std::endl;
-	//can this send already???
-	// if (sendNow)
-	// 	res.sendResponse(clientFd);
 }
 
-void Response::sendResponse(int clientFd)
+void Response::sendResponse(int clientFd, bool isAlive)
 {
 	std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
-	//ADD CONNECTION CLOSE OR KEEP-ALIVE
+
 	isSent = false;
 	ssize_t sending;
 	std::string responseHeaders;
@@ -199,8 +154,10 @@ void Response::sendResponse(int clientFd)
 	if ((statusCode > 299 && statusCode < 400) || (statusCode == 201))
 		responseHeaders += "Location: " + getHeader("location") + "\r\n";	
 	
-	
-	//responseHeaders += std::string("Connection: close") + "\r\n";
+	if (!isAlive)
+		responseHeaders += std::string("Connection: close") + "\r\n";
+	else if (isAlive)
+		responseHeaders += std::string("Connection: keep-alive") + "\r\n";
 	responseHeaders += "\r\n";
 	
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);
