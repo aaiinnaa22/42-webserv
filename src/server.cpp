@@ -204,7 +204,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				{
 					if (!conn.getResponse().isSent)
 					{
-						conn.getResponse().sendResponse(fd);
+						conn.getResponse().sendResponse(fd, conn.getIsAlive());
 					}
 					if (conn.getResponse().isSent)
 					{
@@ -229,7 +229,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				catch (std::runtime_error& e)
 				{
 					std::cout << "sending error " << e.what() << std::endl;
-					conn.resetState();
+					close_connection(fd,ERASECON);
 				}
 				catch (...)
 				{

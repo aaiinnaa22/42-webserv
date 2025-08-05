@@ -105,12 +105,8 @@ int	ClientConnection::parseRequestLine(size_t len)
 {
 	(void)len;
 	size_t line_end = buffer.find("\r\n");
-	// if (line_end == std::string::npos)
-	// 	return INCOMPLETE;
 	std::string request_line = buffer.substr(0, line_end);
 	buffer = buffer.substr(line_end);
-
-	std::cout << "PARSED REQUEST LINE: \"" << request_line << "\"\n";
 
 	if (!is_ascii(request_line))
 	{
@@ -156,7 +152,6 @@ int	ClientConnection::parseRequestLine(size_t len)
 
 int ClientConnection::parseHeaders(std::string buffer)
 {
-	// std::cout << "parse headers function call\n";
 	std::istringstream stream(buffer);
     std::string line;
 	std::set<std::string> seenHeaders;
@@ -188,11 +183,6 @@ int ClientConnection::parseHeaders(std::string buffer)
 		seenHeaders.insert(key);
 		request.addHeader(key, value);
 	}
-	// std::cout << "after parseHeaders getline\n";
-	// for (const auto& header : request.getHeaders())
-	// {
-    // 	std::cout << header.first << ": " << header.second << std::endl;
-	// }
 	return 0;
 }
 
@@ -230,9 +220,7 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
 
     std::string header_section = part.substr(0, header_end);
     std::string content = part.substr(header_end + 4);
-
-	//std::cout << "header_section: " << header_section << std::endl;
-	//std::cout << "content: " << content << std::endl;
+	
 	request.setBody(content);
     std::istringstream headers_stream(header_section);
     std::string line;
@@ -293,12 +281,6 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
             }
         }
     }
-
-    for (const auto& kv : request.bodyHeaders)
-        std::cout << kv.first << ": " << kv.second << "\n";
-
-    for (const auto& kv : request.formFields)
-        std::cout << kv.first << ": " << kv.second << "\n";
 }
 
 ClientConnection::parseResult ClientConnection::parseData(const char *data, size_t len, const Server& server)
@@ -310,7 +292,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 		{
 			if (state == REQUEST_LINE)
 			{
-				std::cout << "buffer: " << buffer << std::endl;
 				if (buffer.find("\r\n") == std::string::npos)
 					return INCOMPLETE;
 				parseRequestLine(len);

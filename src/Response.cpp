@@ -179,7 +179,7 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 	// 	res.sendResponse(clientFd);
 }
 
-void Response::sendResponse(int clientFd)
+void Response::sendResponse(int clientFd, bool isAlive)
 {
 	std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
 	//ADD CONNECTION CLOSE OR KEEP-ALIVE
@@ -199,8 +199,10 @@ void Response::sendResponse(int clientFd)
 	if ((statusCode > 299 && statusCode < 400) || (statusCode == 201))
 		responseHeaders += "Location: " + getHeader("location") + "\r\n";	
 	
-	
-	//responseHeaders += std::string("Connection: close") + "\r\n";
+	if (!isAlive)
+		responseHeaders += std::string("Connection: close") + "\r\n";
+	else if (isAlive)
+		responseHeaders += std::string("Connection: keep-alive") + "\r\n";
 	responseHeaders += "\r\n";
 	
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);
