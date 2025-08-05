@@ -443,7 +443,6 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (ErrorResponseException &e)
 	{
-		std::cout << "do i go here?\n";
 		int shouldClose = e.getResponseStatus();
 		std::cout << "response status from catch: " << shouldClose << std::endl;
 		if (shouldClose == 400 || shouldClose == 408 || shouldClose == 413
@@ -461,7 +460,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (std::exception& e)
 	{
-		std::cout << e.what() << " WAS CAUGHT IN DOREQUEST!!!" << std::endl;
+		std::cout << e.what() << " WAS CAUGHT IN DO REQUEST!!!" << std::endl;
 		response.buildErrorResponse(500, fd, request.getErrorPages());
 		return ERROR;
 	}

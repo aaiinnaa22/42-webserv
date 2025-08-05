@@ -81,16 +81,15 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 
 	path = line.substr(pos + 8);
 	locBlock.path = trim(path);
+	if (locBlock.path[0] != '/' || (locBlock.path.size() > 1 && locBlock.path[1] == '/'))
+		throw std::runtime_error("path in location block should start with one /");
 	std::string inLine;
 	while (std::getline(file, inLine))
 	{
 		inLine = cleanLine(inLine);
-		//std::cout << "line from locblock getline: " << inLine << std::endl;
 		if (inLine.empty())
 			continue;
 		std::string value = extractConfig(inLine, "root");
-		// if (!value.empty() && seenDirectives.count("root"))
-		// 	std::cout << "duplicated directive: root\n";
 		if (!value.empty() && !seenDirectives.count("root")) 
 		{
 			locBlock.root = value;
@@ -164,20 +163,6 @@ LocationConfig parseLocationBlock(std::ifstream &file, const std::string &line, 
 		if (inLine.find("location") != std::string::npos)
 			throw std::runtime_error("Location block misconfigured");
 	}
-	// std::cout << "Parsed location block:\n";
-	// std::cout << "  path: " << locBlock.path << "\n";
-	// std::cout << "  root: " << locBlock.root << "\n";
-	// std::cout << "  index: " << locBlock.index << "\n";
-	// std::cout << "  methods:";
-	// for (size_t i = 0; i < locBlock.methods.size(); ++i)
-	// 	std::cout << " " << locBlock.methods[i];
-	// std::cout << "\n";
-	// std::cout << "  cgi path php: " << locBlock.cgi_path_php << std::endl;
-	// std::cout << "  cgi path python: " << locBlock.cgi_path_python << std::endl;
-	// std::cout << "  upload dir: " << locBlock.upload_dir << std::endl;
-	// std::cout << "  dir listing: " << locBlock.dir_listing << std::endl;
-	// std::cout << "  redir code: " << locBlock.redirect_code << std::endl;
-	// std::cout << "  redir target: " << locBlock.redirect_target << std::endl;
 	if (locBlock.methods.empty()) 
 		throw std::runtime_error("Method info missing from a location block");
 	if (locBlock.path.empty())
@@ -195,7 +180,6 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 	while (std::getline(file, line))
 	{
 		line = cleanLine(line);
-		//std::cout << "line from server block: " << line << std::endl;
 		if (line.empty())
 			continue;
         braceCount += std::count(line.begin(), line.end(), '{');

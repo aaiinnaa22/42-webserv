@@ -46,16 +46,7 @@ int main(int argc, char **argv)
 			{
 				if (servers[i].root.empty() || servers[i].getHost().empty() || servers[i].getPort() == 0)
 					throw std::runtime_error("Info missing in the server block");
-				// std::cout << "server names below: \n";
-				// for (std::vector<std::string>::const_iterator it = servers[i].server_names.begin(); it != servers[i].server_names.end(); ++it)
-				// 	std::cout << *it << std::endl;
-				// std::cout << servers[i].root << "--> root\n";
 				std::cout << "Listen port : " << servers[i].listen_port << " and host: " << servers[i].host << std::endl;
-	
-				// std::cout << servers[i].root << "--> root\n";
-				// std::cout << servers[i].max_client_body_size << "--> body size\n";
-				// std::cout << servers[i].max_client_header_size << "--> header size\n";
-				
 			}
 			Server server;
 			server.startServer(servers);
@@ -64,7 +55,8 @@ int main(int argc, char **argv)
 		{
 			return 1;
 		}
-		catch(std::exception& e){
+		catch(std::exception& e)
+		{
 			std::cerr << e.what() << std::endl;
 		}
 	}

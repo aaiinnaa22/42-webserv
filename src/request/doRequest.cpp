@@ -285,7 +285,7 @@ void HttpRequest::isRedirection(void)
 
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
-	dump();
+	dump(); // remember to comment it out or delete it :)
 	try
 	{
 		originalPath = path;
