@@ -21,7 +21,7 @@
 		if (connections[k].getFd() != -1)	
 			close(connections[k].getFd());
 	}
-	for (size_t s = 0; _serverfd[s] != 0 ; s++)
+	for (size_t s = 0; s < 5 ; s++)
 	{	
 		if (_serverfd[s] != -1)
 			close(_serverfd[s]);
@@ -237,12 +237,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 					close_connection(fd,ERASECON);
 				}
 			}
-		}
-		else if ((events[i].events & EPOLLHUP )) // Should this be if -- also testing
-		{
-			std::cerr << "We actually got here wow!" << fd << std::endl;
-			close_connection(fd,ERASECON);
-			continue ;
 		}
 	}
 }
