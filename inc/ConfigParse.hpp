@@ -56,5 +56,7 @@ class ConfigParse
 		int	confParse(std::string &filename);
 		ServerConfig	parseServerBlock(std::ifstream &file);
 		const std::vector<ServerConfig> &getServers() const;
+		ConfigParse() = default;
+		~ConfigParse() = default;
 };
 
