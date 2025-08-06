@@ -252,6 +252,12 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 			seenDirectives.insert("root");
 
 		}
+		value = extractConfig(line, "index");
+		if (!value.empty() && !seenDirectives.count("index"))
+		{
+			s1.index = value;
+			seenDirectives.insert("index");
+		}
 		value = extractConfig(line, "error_page");
 		{
 			if (!value.empty())

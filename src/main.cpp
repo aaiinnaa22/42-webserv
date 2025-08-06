@@ -47,9 +47,12 @@ int main(int argc, char **argv)
 				if (servers[i].root.empty() || servers[i].getHost().empty() || servers[i].getPort() == 0)
 					throw std::runtime_error("Info missing in the server block");
 				std::cout << "Listen port : " << servers[i].listen_port << " and host: " << servers[i].host << std::endl;
+				std::cout << "Index: " << servers[i].index << std::endl;
 			}
 			Server server;
 			server.startServer(servers);
+			unlink("tempStdin");
+			unlink("tempStdout");
 		}
 		catch (ChildError& e)
 		{
@@ -58,6 +61,8 @@ int main(int argc, char **argv)
 		catch(std::exception& e)
 		{
 			std::cerr << e.what() << std::endl;
+			unlink("tempStdin");
+			unlink("tempStdout");
 		}
 	}
 	return 0;

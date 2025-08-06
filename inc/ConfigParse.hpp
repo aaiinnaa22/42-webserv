@@ -32,6 +32,7 @@ struct ServerConfig
 	size_t	max_client_header_size = 8192;
 	std::string host = "";
 	std::string root = "";
+	std::string index = "";
 	std::vector<std::string> server_names;
 	std::map<int, std::string> default_error_pages;
 	std::map<int, std::string> error_pages_2;
