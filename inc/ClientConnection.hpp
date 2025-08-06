@@ -29,7 +29,7 @@ class ClientConnection
 		};
 		HttpRequest request;
 		std::string boundary;
-		bool isMultipart;
+		bool isMultipart = 0;
 		int expected_body_len;
 		bool isKeepAlive;
 		bool reading_chunk_size;
