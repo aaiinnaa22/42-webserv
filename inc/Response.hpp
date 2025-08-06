@@ -33,7 +33,7 @@ class Response
 		std::string toString() const;
 
 		void buildErrorResponse(int statusCode, int clientFd, std::map<int, std::string> errorPages = {});
-		void sendResponse(int clientFd); //public?
+		void sendResponse(int clientFd, bool isAlive); //public?
 		Response() = default;
 		Response(int code);
 		Response(int code, const std::string& body);
