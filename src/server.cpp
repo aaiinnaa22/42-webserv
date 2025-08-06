@@ -455,3 +455,23 @@ void Server::startServer(std::vector<ServerConfig> servers)
 		throw std::runtime_error("Error! epoll_ctl failed");
 	}
 }
+
+
+std::vector<int> Server::get_open_fds() const
+{
+	std::vector<int> open_fds;
+	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
+	{
+		int client_fd = it->second.getFd();
+        if (client_fd != -1)
+            open_fds.push_back(client_fd);
+	}
+	for (int i = 0; i < 5 && _serverfd[i] != 0; ++i)
+	{
+        open_fds.push_back(_serverfd[i]);
+    }
+	if (_epollfd != -1)
+        open_fds.push_back(_epollfd);
+
+    return open_fds;
+}
