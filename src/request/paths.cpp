@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:45:45 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 14:50:49 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 16:16:58 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,7 +57,7 @@ void HttpRequest::findCurrentLocation(ServerConfig config)
 
 	for (auto location : config.locations)
 	{
-		if (originalPath.find(location.path) == 0) //path starts with location path
+		if (originalPath.find(location.path) == 0)
 		{
 			match_len = location.path.length();
 			if (match_len > longest_match_len)
@@ -79,17 +79,12 @@ void HttpRequest::makeRootAbsolute(std::string& myRoot)
 	{
 		if (root.is_relative())
 			root = std::filesystem::current_path() / root;
-		std::cout << "ROOT: " << root.string() << std::endl;
 		if (!std::filesystem::exists(root))
-		{
-			std::cout << "root does not exist" << std::endl;
 			throw ErrorResponseException(500);
-		}
 		myRoot = std::filesystem::canonical(root);
 	}
 	catch (const std::filesystem::filesystem_error& e)
 	{
-		std::cout << "THROW MAKE ROOT ABSOLUTE" << std::endl;
 		throw ErrorResponseException(500);
 	}
 }
@@ -106,10 +101,7 @@ struct stat HttpRequest::safeStat(std::string statThis)
 		if (errno == ENAMETOOLONG)
 			throw ErrorResponseException(414);
 		else
-		{
-			std::cout << "ERRROOOOORR: " << strerror(errno) << std::endl;
 			throw ErrorResponseException(500);
-		}
 	}
 	return (st);
 }

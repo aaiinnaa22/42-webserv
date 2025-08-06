@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 15:28:16 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 16:11:04 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,10 +68,8 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 }
 
 
-void HttpRequest::methodGet(void)
+void HttpRequest::methodGet()
 {
-	//what if both dir listing and index is on in conf?
-	std::cout << "hello from method GET" << std::endl;
 	ssize_t charsRead;
 	int fd;
 	char buffer[1000];
@@ -82,7 +80,7 @@ void HttpRequest::methodGet(void)
 		{
 			completePath += currentLocation.index;
 			std::cout << "index html path: " << completePath << std::endl;
-			try 
+			try
 			{
 				checkPathIsSafe();
 			}
@@ -91,6 +89,18 @@ void HttpRequest::methodGet(void)
 				throw ErrorResponseException(500);
 			}
 		}
+		// else if (!config.index.empty()) //ADD!
+		// {
+		// 	completePath += config.index;
+		// 	try 
+		// 	{
+		// 		checkPathIsSafe();
+		// 	}
+		// 	catch (ErrorResponseException& e)
+		// 	{
+		// 		throw ErrorResponseException(500);
+		// 	}
+		// }
 		else if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();

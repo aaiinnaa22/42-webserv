@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 15:15:46 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 16:13:28 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -154,7 +154,7 @@ static std::string parseCgiContentType(std::string contentType)
 		else if (valueTime == 1 && (isalpha(contentType[i]) || contentType[i] == '/'))
 			finalValue += contentType[i];
 		else if (contentType[i] == ';')
-				break ; //Content-type: text/html;charset=UTF-8
+				break ;
 		else 
 			throw ErrorResponseException(500);
 
@@ -307,8 +307,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		interpreterPath = currentLocation.cgi_path_php; 
 
 	pathInfo = getPathInfo(cgiExtension);
-	std::cout << "INTERPRETER PATH: " << interpreterPath << std::endl;
-	std::cout << "COMPLETE PATH IN ARGV: " << completePath << std::endl;
 	char *argv[] =
 	{
 		const_cast<char *>(interpreterPath.c_str()),
@@ -317,7 +315,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	};
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
 	
-	//REMOVE THE TEMP FILES AFTER USE??!
 	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
 	if (stdinWriteFd == -1)
 		throw ErrorResponseException(500);
@@ -339,19 +336,15 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		close(stdinFd);
 		throw ErrorResponseException(500);
 	}
-	//int stderrDebug = open("tempStderrDEBUG", O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	pid_t pid = fork();
 	if (pid == -1)
 		throw ErrorResponseException(500);
-	// interpreterPath = "/abcd"; //- do this to make execve fail
 	if (pid == 0)
 	{
 		(void)argv;
 		(void)server;
 		try
 		{
-			//dup2(stderrDebug, STDERR_FILENO);
-			//close(stderrDebug);
 			if (dup2(stdinFd, STDIN_FILENO) == -1)
 			{
 				close(stdinFd);

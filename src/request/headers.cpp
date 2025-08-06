@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:49:33 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 16:31:34 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 16:16:19 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,7 @@ void HttpRequest::checkContentType(std::string responseContentType)
 				std::cout << "THROWING FROM POST CONTENT_TYPE CHECK" << std::endl;
 				std::cout << "REQUEST CONTENT TYPE: " << requestContentType << std::endl;
 				std::cout << "RESPONSE CONTENT TYPE: " << responseContentType << std::endl;
-				throw ErrorResponseException(415); //?
+				throw ErrorResponseException(415);
 			}
 		}
 	}
@@ -79,7 +79,6 @@ void HttpRequest::setContentType(int postCheck)
 	fileExtension = completePath.substr(dot + 1, completePath.length());
 	if (postCheck == 1)
 	{
-		//DOES NOT WORK??!!
 		if (fileExtension != "jpg" && fileExtension != "jpeg" && fileExtension != "png"
 				&& fileExtension != "gif" && fileExtension != "pdf" && fileExtension != "txt")
 			throw ErrorResponseException(415);
