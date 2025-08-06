@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 15:15:29 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 15:28:16 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,8 +46,11 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	{
 		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_name[0] == '.')
 			continue ;
-		std::string strEntryLink(entry->d_name);
-		std::string strEntryName = strEntryLink;
+		std::string strEntryLink = originalPath;
+		if (!strEntryLink.empty() && strEntryLink.back() != '/')
+			strEntryLink += '/'; 
+		strEntryLink += entry->d_name;
+		std::string strEntryName = entry->d_name;
 		encodeUrl(strEntryLink);
 		escapeHtml(strEntryName);
 		html_content = "<li><a href=\"" + strEntryLink + "\">" + strEntryName + "</a></li>\n"; 
