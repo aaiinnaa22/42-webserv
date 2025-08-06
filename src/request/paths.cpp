@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:45:45 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/04 19:15:50 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 14:50:49 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,14 +21,12 @@ void HttpRequest::checkQueryString(void)
 	originalPath = originalPath.substr(0, pos);
 }
 
-void HttpRequest::checkPathIsSafe(void) //??
+void HttpRequest::checkPathIsSafe(void)
 {
 	std::filesystem::path canonicalPath;
 	try 
 	{
 		canonicalPath = std::filesystem::weakly_canonical(completePath);
-		//weakly_canonical allows us to make a path canonical, 
-		//even tho it does not exist (a path does not exist when i try to POST)
 	}
 	catch (const std::filesystem::filesystem_error& e) 
 	{
@@ -41,14 +39,8 @@ void HttpRequest::checkPathIsSafe(void) //??
 		else 
 			throw ErrorResponseException(500);
 	}
-	std::cout << "IS ROOT THE FIRST THING OF PATH?" << std::endl;
-	std::cout << "path: " << canonicalPath.string() << std::endl;
-	std::cout << "root: " << currentLocation.root << std::endl;
 	if (canonicalPath.string().find(currentLocation.root) != 0)
-	{
-		std::cout << "root not in path" << std::endl;
 		throw ErrorResponseException(403);
-	}
 }
 
 int HttpRequest::checkPathIsDirectory(void)

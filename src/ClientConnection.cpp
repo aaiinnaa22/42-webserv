@@ -323,7 +323,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 				}
 				//finding matching server block, moved here from do request
 				selected_server = selectServerByHost(bound_servers, checkHost);
-				request.setErrorPages(selected_server->error_pages_2, "");
+				request.setErrorPages(selected_server->error_pages_2);
 				if (header_buffer.size() > selected_server->max_client_header_size)
 				{
 					throw ErrorResponseException(431);

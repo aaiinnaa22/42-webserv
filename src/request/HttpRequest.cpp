@@ -52,6 +52,16 @@ std::string HttpRequest::getHeader(const std::string& key) const
     return (it != headers.end()) ? it->second : "";
 }
 
+void HttpRequest::setErrorPages(std::map<int, std::string> pages)
+{
+	errorPages = pages;
+}
+
+std::map<int, std::string> HttpRequest::getErrorPages(void)
+{
+	return (errorPages);
+}
+
 void HttpRequest::dump() const {
     std::cout << "Method: " << method << "\n";
     std::cout << "Path: " << path << "\n";

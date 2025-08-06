@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/05 15:03:43 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 15:15:46 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,7 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	envVariables.push_back("SERVER_NAME=" + config.server_names.at(0));
 	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
 	envVariables.push_back("PATH_INFO=" + pathInfo);
-	envVariables.push_back("REDIRECT_STATUS=200"); //for php-cgi?
+	envVariables.push_back("REDIRECT_STATUS=200");
 
 	if (method == "GET")
 		envVariables.push_back("QUERY_STRING=" + queryString);

@@ -78,7 +78,7 @@ class HttpRequest
 		void		setKeepAlive(bool isAlive);
 		std::string	getHeader(const std::string& key) const;
 		Response	doRequest(ServerConfig config, const Server& server);// we might not need server
-		void setErrorPages(std::map<int, std::string> pages, std::string root);
+		void setErrorPages(std::map<int, std::string> pages);
 		std::map<int, std::string> getErrorPages(void);
 		static void makeRootAbsolute(std::string& myRoot);
 		
