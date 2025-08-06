@@ -6,12 +6,13 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/01 12:23:16 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/05 15:03:43 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../inc/HttpRequest.hpp"
 #include "../../inc/ClientConnection.hpp"
+#include "../../inc/Server.hpp"
 
 std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pathInfo)
 {
@@ -317,7 +318,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
 	
 	//REMOVE THE TEMP FILES AFTER USE??!
-	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
 	if (stdinWriteFd == -1)
 		throw ErrorResponseException(500);
 	charsWritten = write(stdinWriteFd, body.c_str(), body.size());//check for 0, also the nonblocking file
@@ -329,10 +330,10 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 	close (stdinWriteFd);
 	int stdinFd;
 	int stdoutFd;
-	stdinFd = open("tempStdin", O_RDONLY); //test? with post
+	stdinFd = open("tempStdin", O_RDONLY | O_CLOEXEC); //test? with post
 	if (stdinFd == -1)
 		throw ErrorResponseException(500);
-	stdoutFd = open("tempStdout", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	stdoutFd = open("tempStdout", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
 	if (stdoutFd == -1)
 	{
 		close(stdinFd);
@@ -363,10 +364,15 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 				close(stdoutFd);
 				throw ChildError(500, "dup2");
 			}
+			std::vector<int> fds = server.get_open_fds();
+			for (size_t i = 0; i < fds.size(); ++i)
+    		close(fds[i]);
 			close(stdinFd);
 			close(stdoutFd);
+			if (chdir(currentLocation.root.c_str()) != 0) //test
+				throw ChildError(500, "chdir");
 			execve(interpreterPath.c_str(), argv, envp.data());
-			std::cerr << "Execve call fail, cleaning fds...\n";
+			std::cerr << "Execve call fail, cleaning fds...\n ! \n !\n !\n";
 			throw ChildError(500, "execve");
 			
 			// std::vector<int> fds_to_close = server.get_open_fds();
@@ -414,8 +420,18 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		// 	std::cout << buf << std::endl;
 		// std::cout << "DEBUG DONE" << std::endl;
 		//test done
+		if (WIFSIGNALED(status)) 
+		{
+ 			int sig = WTERMSIG(status);
+    		std::cerr << "CGI script terminated by signal: " << sig << std::endl;
+    		throw ErrorResponseException(500);
+		}
+
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		{
+			std::cerr << "CGI script exited with code: " << WEXITSTATUS(status) << std::endl;
 			throw ErrorResponseException(500);
+		}
 
 		int stdoutReadFd = open("tempStdout", O_RDONLY);
 		if (stdoutReadFd == -1)

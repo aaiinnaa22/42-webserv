@@ -1,5 +1,6 @@
 #include "../inc/ConfigParse.hpp"
 #include "../inc/Response.hpp"
+#include "../inc/HttpRequest.hpp"
 
 void set_default_errors(std::map<int, std::string>& defaultMap)
 {
@@ -246,6 +247,7 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 		value = extractConfig(line, "root");
 		if (!value.empty() && !seenDirectives.count("root"))
 		{
+			HttpRequest::makeRootAbsolute(value);
 			s1.root = value;
 			seenDirectives.insert("root");
 
@@ -262,8 +264,13 @@ ServerConfig ConfigParse::parseServerBlock(std::ifstream &file)
 					if (!std::regex_match(codeString, std::regex(R"(^\d{3}$)")))
 						throw std::runtime_error ("Error code out of range " + codeString);
 					int code = std::stoi(codeString);
+					path = s1.root + "/" + path;
+					std::filesystem::path canonicalErrorPath;
+					canonicalErrorPath = std::filesystem::canonical(path);
+					if (canonicalErrorPath.string().find(s1.root) != 0)
+						throw std::runtime_error("Error page escapes server root");
 					s1.error_pages_2[code] = path;
-					std::ifstream file("./" + path);
+					std::ifstream file(path);
 					if (!file)
 					{
 						throw std::runtime_error("Failed to open error page");

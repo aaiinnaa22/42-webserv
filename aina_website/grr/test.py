@@ -43,6 +43,14 @@ name = html.escape(name)  # Escape for safety
 # Pick a random fortune
 fortune = random.choice(fortunes)
 
+try :
+	with open("404.html") as f: 
+		content = f.read()
+	print(content)
+except Exception as e:
+	print("ERROOOOR reading file in cgi")
+
+
 print("<html><body>")
 print(f"<h1>Hello, {name}!</h1>")
 print(f"<p>Your fortune for today:</p>")

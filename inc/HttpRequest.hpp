@@ -47,7 +47,6 @@ class HttpRequest
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
 		void checkPathIsSafe(void);
-		void makeRootAbsolute(std::string& myRoot);
 		// void setErrorPages(std::map<int, std::string> pages, std::string root);
 		void decodeUrl(std::string& decodeThis);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
@@ -81,6 +80,7 @@ class HttpRequest
 		Response	doRequest(ServerConfig config, const Server& server);// we might not need server
 		void setErrorPages(std::map<int, std::string> pages, std::string root);
 		std::map<int, std::string> getErrorPages(void);
+		static void makeRootAbsolute(std::string& myRoot);
 		
 		HttpRequest(int fd);
 		~HttpRequest() {};
