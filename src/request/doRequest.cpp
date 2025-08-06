@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/05 19:14:13 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/06 11:26:02 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -296,7 +296,6 @@ void HttpRequest::isRedirection(void)
 
 Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 {
-	//check correct error paths for non default
 	std::cout << "DO REQUEST" << std::endl;
 	dump();
 	try
