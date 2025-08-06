@@ -2,10 +2,52 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>POST</title>
+	<title>POST method tester</title>
+	<style>
+    body {
+      background-color: #f0f4f8; 
+      text-align: center;       
+      font-family: Arial, sans-serif;
+      padding-top: 50px;
+	  align-items: center;
+	  justify-content: center;
+	  flex-direction: column;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+	input[type="submit"] {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 20%;
+    }
+
+	input[type="file"] {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 20%;
+    }
+
+  </style>
 </head>
 <body>
-	<h1>POST A FILE</h1>
+	<h1>Upload file to the server</h1>
 	<form action="/upload" method="POST" enctype="multipart/form-data">
 		<input type="file" name="uploaded_file" required /><br /><br/>
 		<input type="submit" value="Upload" />
