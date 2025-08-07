@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 16:11:04 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/07 12:11:03 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -272,7 +272,20 @@ void HttpRequest::isRedirection(void)
 	if (originalPath.starts_with(currentLocation.path))
 		originalPath.erase(0, currentLocation.path.size());
 
+	std::string newPath;
 	std::string target = currentLocation.redirect_target;
+	if (target.starts_with("http"))
+	{
+		newPath = target;
+		encodeUrl(originalPath);
+		newPath += "/" + originalPath;
+		if (!queryString.empty())
+			newPath += "?" + queryString;
+		httpResponse.setResponseHeader("location", newPath);
+		httpResponse.setStatus(currentLocation.redirect_code);
+		return ;
+	}
+		
 	if (target.back() != '/')
 		target += '/';
 
@@ -289,8 +302,6 @@ void HttpRequest::isRedirection(void)
 		absOriginalPath += '/';
 	if (absTargetPath.back() != '/')
 		absTargetPath += '/';
-
-	std::string newPath;
 
 	if (absOriginalPath.starts_with(absTargetPath)) 
 		newPath = absOriginalPath;
