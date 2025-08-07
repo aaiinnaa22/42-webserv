@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:49:33 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 16:16:19 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/07 19:35:38 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,8 +18,11 @@ void HttpRequest::checkContentType(std::string responseContentType)
 	{
 		if (headers.find("content-type") != headers.end())
 		{
-			std::string requestContentType = headers.at("content-type");
-			if (requestContentType.find(responseContentType) == std::string::npos)
+			std::string requestContentType = headers.at("content-type"); 
+			if (requestContentType == "application/octet-stream" || 
+				requestContentType == "application/x-www-form-urlencoded") //???
+				;
+			else if (requestContentType.find(responseContentType) == std::string::npos)
 			{
 				std::cout << "THROWING FROM POST CONTENT_TYPE CHECK" << std::endl;
 				std::cout << "REQUEST CONTENT TYPE: " << requestContentType << std::endl;

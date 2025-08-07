@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/07 12:11:03 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/07 17:51:52 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -267,7 +267,7 @@ void HttpRequest::isRedirection(void)
 	if (currentLocation.redirect_code > 303 && currentLocation.redirect_code < 307)
 		throw ErrorResponseException(500);
 
-	fixMultipleSlashes(currentLocation.redirect_target);
+	//fixMultipleSlashes(currentLocation.redirect_target);
 
 	if (originalPath.starts_with(currentLocation.path))
 		originalPath.erase(0, currentLocation.path.size());
@@ -285,6 +285,7 @@ void HttpRequest::isRedirection(void)
 		httpResponse.setStatus(currentLocation.redirect_code);
 		return ;
 	}
+	fixMultipleSlashes(target); //even have it?
 		
 	if (target.back() != '/')
 		target += '/';

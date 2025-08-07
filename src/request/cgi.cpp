@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/07 15:51:34 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/07 18:45:22 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,19 +29,19 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 
 	if (method == "GET")
 		envVariables.push_back("QUERY_STRING=" + queryString);
-	else if (method == "POST")
-	{
-		if (headers.find("content-length") != headers.end())
-			header = headers.at("content-length");
-		else
-			header = "0"; 
-		envVariables.push_back("CONTENT_LENGTH=" + header);
-		if (headers.find("content-type") != headers.end())
-			header = headers.at("content-type");
-		else 
-			header = "";
-		envVariables.push_back("CONTENT_TYPE=" + header);
-	}
+	//else if (method == "POST")
+	//{
+	if (headers.find("content-length") != headers.end())
+		header = headers.at("content-length");
+	else
+		header = "0"; 
+	envVariables.push_back("CONTENT_LENGTH=" + header);
+	if (headers.find("content-type") != headers.end())
+		header = headers.at("content-type");
+	else 
+		header = "";
+	envVariables.push_back("CONTENT_TYPE=" + header);
+	//}
 	for (size_t i = 0; i < envVariables.size(); ++i)
 	{
 		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
