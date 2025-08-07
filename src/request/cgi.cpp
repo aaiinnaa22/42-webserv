@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 16:13:28 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/07 15:51:34 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -155,7 +155,7 @@ static std::string parseCgiContentType(std::string contentType)
 			finalValue += contentType[i];
 		else if (contentType[i] == ';')
 				break ;
-		else 
+		else
 			throw ErrorResponseException(500);
 
 	}
@@ -227,11 +227,11 @@ static std::pair<std::string, int> parseCgiHeaders(std::string cgiHeaders, size_
 					if (duplicatePos == 0 || cgiHeaders.at(duplicatePos - 1) == '\n')
 						throw ErrorResponseException(500);
 				}
-				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader);
+				std::string currentHeader = cgiHeaders.substr(pos, endOfHeader - pos - (findLen / 2) + 1);
 				size_t delimitor = currentHeader.find(":");
 				if (delimitor != std::string::npos)
 				{
-					cgiHeaders.erase(pos, endOfHeader + (findLen / 2));
+					cgiHeaders.erase(pos, endOfHeader - pos + (findLen / 2));
 					header = currentHeader.substr(0, delimitor);
 					if (header != headerType)
 						throw ErrorResponseException(500);
@@ -273,7 +273,6 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 		cgiBody = cgiOutput.substr(pos + findLen);
 	if (pos == std::string::npos)
 		throw ErrorResponseException(500);
-
 	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
 	
 	headerResult = parseCgiHeaders(cgiHeaders, findLen, max_client_body_size);

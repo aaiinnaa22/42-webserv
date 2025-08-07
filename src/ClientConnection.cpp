@@ -220,7 +220,8 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
 
     std::string header_section = part.substr(0, header_end);
     std::string content = part.substr(header_end + 4);
-	
+	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
+    	content.erase(content.size() - 2);
 	request.setBody(content);
     std::istringstream headers_stream(header_section);
     std::string line;
