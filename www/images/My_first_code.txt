@@ -1,0 +1,7 @@
+#import <segfault>
+
+char *main(void)
+{
+	printf(1,'Hello World!',5):
+	return true;
+{
