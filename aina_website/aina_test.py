@@ -4,7 +4,6 @@ import os
 import html
 import random
 from urllib.parse import parse_qs
-import sys
 
 # Sample fortunes
 fortunes = [
@@ -15,11 +14,8 @@ fortunes = [
     "Today is a perfect day to learn something new."
 ]
 
-
-print("Status: 200")
 print("Content-Type: text/html")
-#print("Content-Length: 10")
-#print("dfdf")
+print("Content-Length: 4")
 print()  # End of headers
 
 
@@ -33,7 +29,7 @@ if request_method == "GET":
 
 elif request_method == "POST":
 	content_length = int(os.environ.get("CONTENT_LENGTH", "0"))
-	post_data = sys.stdin.read(content_length)
+	post_data = os.environ.get("REQUEST_BODY", "")
 	params = parse_qs(post_data)
 
 # Extract name if present
@@ -43,18 +39,9 @@ name = html.escape(name)  # Escape for safety
 # Pick a random fortune
 fortune = random.choice(fortunes)
 
-try :
-	with open("404.html") as f: 
-		content = f.read()
-	print(content)
-except Exception as e:
-	print("ERROOOOR reading file in cgi")
-
-
 print("<html><body>")
 print(f"<h1>Hello, {name}!</h1>")
 print(f"<p>Your fortune for today:</p>")
 print(f"<blockquote>{fortune}</blockquote>")
 print("</body></html>")
-
 

@@ -63,7 +63,7 @@ class HttpRequest
 		void encodeUrl(std::string& encodeThis);
 		void postIsMultipartBody();
 		void fixMultipleSlashes(std::string &fixThis);
-		void normalizeConfigPaths();
+		//void normalizeConfigPaths(); //?
 
 	public:
 		std::map<std::string, std::string> bodyHeaders;
