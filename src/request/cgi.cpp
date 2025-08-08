@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/07 18:45:22 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/08 15:47:59 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,11 +26,9 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	envVariables.push_back("SERVER_PORT=" + std::to_string(config.listen_port));
 	envVariables.push_back("PATH_INFO=" + pathInfo);
 	envVariables.push_back("REDIRECT_STATUS=200");
+	envVariables.push_back("GATEWAY_INTERFACE=CGI/1.1");
 
-	if (method == "GET")
-		envVariables.push_back("QUERY_STRING=" + queryString);
-	//else if (method == "POST")
-	//{
+	envVariables.push_back("QUERY_STRING=" + queryString);
 	if (headers.find("content-length") != headers.end())
 		header = headers.at("content-length");
 	else
@@ -41,7 +39,6 @@ std::vector<char *>HttpRequest::setupCgiEnv(ServerConfig config, std::string pat
 	else 
 		header = "";
 	envVariables.push_back("CONTENT_TYPE=" + header);
-	//}
 	for (size_t i = 0; i < envVariables.size(); ++i)
 	{
 		std::cout << "ENV VAR: " << envVariables[i] << std::endl;
