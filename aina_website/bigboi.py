@@ -4,7 +4,7 @@ import socket
 
 HOST = '127.0.0.1'
 PORT = 1234
-PATH = '/A_test'
+PATH = '/A_test.txt'
 
 # Generate ~512KB body (large enough to not fit in one write)
 body = "A" * (512 * 1024)
@@ -12,7 +12,7 @@ request = (
     f"POST {PATH} HTTP/1.1\r\n"
     f"Host: {HOST}\r\n"
     f"Content-Length: {len(body)}\r\n"
-    f"Content-Type: text/html\r\n"
+    f"Content-Type: text/plain\r\n"
     f"Connection: close\r\n"
     f"\r\n"
     f"{body}"

@@ -32,7 +32,7 @@ class ClientConnection
 		bool isMultipart = 0;
 		int expected_body_len;
 		bool isKeepAlive;
-		bool reading_chunk_size;
+		bool reading_chunk_size = 0;
 		int chunk_size;
 		std::vector<ServerConfig> bound_servers; 
 		const ServerConfig* selected_server;
