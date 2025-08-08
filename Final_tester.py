@@ -24,4 +24,17 @@ def test_fortune_python_script():
 
     assert response.status_code == 200
 
+#Aina
+
+def test_post_php_cgi():
+	url = "http://127.0.0.1:8081/cgi-bin/cgi-bin/post_test.php"
+	post_body = "cgi-php is amazing wow"
+
+	response = requests.post(url, data=post_body)
+
+	assert response.text == post_body
+
+	
+
+#Aina end
 
