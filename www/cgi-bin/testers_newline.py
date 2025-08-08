@@ -1,3 +1,7 @@
+#!/usr/bin/env pytest
+import requests
+import time
+
 import difflib
 from pathlib import Path
 
@@ -28,12 +32,9 @@ def test_file_upload_and_check():
     Assumes the server routes POST requests to /images/ to the directory:
       ./home/images
     """
-    import time
-    from pathlib import Path
-    import requests
 
     filename = "test_upload.txt"
-    file_content = b"hello from the posted file\r\n\r\n"
+    file_content = b"sample file content\r\n\r\n"
     files = {'file': (filename, file_content)}
     upload_url = "http://127.0.0.1:8081/images/"
     print(f"Uploading to: {upload_url}")
@@ -60,6 +61,4 @@ def test_file_upload_and_check():
 
     temp_path.unlink()
     upload_path.unlink()
-if __name__ == "__main__":
-    test_file_upload_and_check()
 
