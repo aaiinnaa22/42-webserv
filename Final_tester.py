@@ -28,7 +28,7 @@ def test_number_php_script():
 
     assert response.status_code == 200
 
-def test_fortune_python_script():
+def test_fortune_python_script_get():
     url = "http://127.0.0.1:8081/cgi-bin/aina_test.py?name=Leo"
     response = requests.get(url)
 
@@ -36,17 +36,67 @@ def test_fortune_python_script():
 
 #Aina
 
+def test_fortune_python_script_post():
+	url = "http://127.0.0.1:8081/cgi-bin/aina_test.py?name=Leo"
+	post_body = "name=Aina"
+	response = requests.post(url, data=post_body)
+
+	assert response.status_code == 200
+	assert "Aina" in response.text
+
 def test_post_php_cgi():
-	url = "http://127.0.0.1:8081/cgi-bin/cgi-bin/post_test.php"
+	url = "http://127.0.0.1:8081/cgi-bin/post_test.php"
 	post_body = "cgi-php is amazing wow"
 
 	response = requests.post(url, data=post_body)
 
+	assert response.status_code == 200
 	assert response.text == post_body
 
+
+def test_post_py_cgi():
+	url = "http://127.0.0.1:8081/cgi-bin/post_test.py"
+	post_body = "life is great"
+
+	response = requests.post(url, data=post_body)
+
+	assert response.status_code == 200
+	assert response.text == post_body
+
+def test_cgi_path_info():
+	url = "http://127.0.0.1:8081/cgi-bin/path_info.py"
+
+	response = requests.get(url)
+
+	assert response.status_code == 200
+	assert response.text == ""
+
+	url = "http://127.0.0.1:8081/cgi-bin/path_info.py/hello/world/bath_info.py"
 	
+	response = requests.get(url)
+
+	assert response.status_code  == 200
+	assert response.text == "/hello/world/bath_info.py"
+
+def test_cgi_run_in_correct_dir():
+	url = "http://127.0.0.1:8081/cgi-bin/tempTestCgi.txt"
+	
+	response = requests.post(url)
+	assert response.status_code == 201
+
+	url	= "http://127.0.0.1:8081/cgi-bin/cgiRunInCorrectDir.py"
+
+	response = requests.get(url)
+	assert response.status_code == 200
+
+	url = "http://127.0.0.1:8081/cgi-bin/tempTestCgi.txt"
+	response = requests.delete(url)
+	assert response.status_code == 204
+
 
 #Aina end
+
+
 def test_upload_file():
     test_file_upload_and_check()
 

@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:25:17 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/08 15:47:59 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/08 20:37:36 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,10 +66,9 @@ std::string HttpRequest::getPathInfo(std::string cgiExtension)
 	}
 	if (posOfPathInfo == std::string::npos)
 		throw ErrorResponseException(500);
-	if (posOfPathInfo + 1 < completePath.size())
+	if (posOfPathInfo + lenOfPos < completePath.size()) //changed
 	{
 		pathInfo = completePath.substr(posOfPathInfo + lenOfPos);
-		//remove "/" if its the first character?
 		completePath = completePath.substr(0, posOfPathInfo + lenOfPos);
 	}
 	return (pathInfo);
@@ -270,8 +269,8 @@ void HttpRequest::parseCgiOutput(std::string cgiOutput)
 		cgiBody = cgiOutput.substr(pos + findLen);
 	if (pos == std::string::npos)
 		throw ErrorResponseException(500);
+
 	cgiHeaders = cgiOutput.substr(0, pos + (findLen / 2));
-	
 	headerResult = parseCgiHeaders(cgiHeaders, findLen, max_client_body_size);
 	if (headerResult.second != -1)
 	{
@@ -332,6 +331,11 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		close(stdinFd);
 		throw ErrorResponseException(500);
 	}
+	
+	std::filesystem::path cgiPath(completePath);
+	std::string cgiDirectory = cgiPath.parent_path().string();
+	//std::cout << "CGI DIR: " << cgiDirectory << std::endl;
+	
 	pid_t pid = fork();
 	if (pid == -1)
 		throw ErrorResponseException(500);
@@ -354,11 +358,11 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 				throw ChildError(500, "dup2");
 			}
 			std::vector<int> fds = server.get_open_fds();
-			for (size_t i = 0; i < fds.size(); ++i)
+			for (size_t i = 0; i < fds.size(); ++i) //?intendation
     		close(fds[i]);
 			close(stdinFd);
 			close(stdoutFd);
-			if (chdir(currentLocation.root.c_str()) != 0) //test
+			if (chdir(cgiDirectory.c_str()) != 0)
 				throw ChildError(500, "chdir");
 			execve(interpreterPath.c_str(), argv, envp.data());
 			std::cerr << "Execve call fail, cleaning fds...\n ! \n !\n !\n";
