@@ -29,7 +29,7 @@ if request_method == "GET":
 
 elif request_method == "POST":
 	content_length = int(os.environ.get("CONTENT_LENGTH", "0"))
-	post_data = os.environ.get("REQUEST_BODY", "")
+	#post_data = os.environ.get("REQUEST_BODY", "")
 	params = parse_qs(post_data)
 
 # Extract name if present

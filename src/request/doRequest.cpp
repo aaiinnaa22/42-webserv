@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/07 12:11:03 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/08 15:48:19 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,7 +68,7 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 }
 
 
-void HttpRequest::methodGet()
+void HttpRequest::methodGet(ServerConfig config)
 {
 	ssize_t charsRead;
 	int fd;
@@ -89,18 +89,18 @@ void HttpRequest::methodGet()
 				throw ErrorResponseException(500);
 			}
 		}
-		// else if (!config.index.empty()) //ADD!
-		// {
-		// 	completePath += config.index;
-		// 	try 
-		// 	{
-		// 		checkPathIsSafe();
-		// 	}
-		// 	catch (ErrorResponseException& e)
-		// 	{
-		// 		throw ErrorResponseException(500);
-		// 	}
-		// }
+		else if (!config.index.empty())
+		{
+			completePath += config.index;
+			try 
+			{
+				checkPathIsSafe();
+			}
+			catch (ErrorResponseException& e)
+			{
+				throw ErrorResponseException(500);
+			}
+		}
 		else if (currentLocation.dir_listing)
 		{
 			ResponseBodyIsDirectoryListing();
@@ -267,8 +267,6 @@ void HttpRequest::isRedirection(void)
 	if (currentLocation.redirect_code > 303 && currentLocation.redirect_code < 307)
 		throw ErrorResponseException(500);
 
-	fixMultipleSlashes(currentLocation.redirect_target);
-
 	if (originalPath.starts_with(currentLocation.path))
 		originalPath.erase(0, currentLocation.path.size());
 
@@ -277,14 +275,15 @@ void HttpRequest::isRedirection(void)
 	if (target.starts_with("http"))
 	{
 		newPath = target;
-		encodeUrl(originalPath);
 		newPath += "/" + originalPath;
+		encodeUrl(originalPath);
 		if (!queryString.empty())
 			newPath += "?" + queryString;
 		httpResponse.setResponseHeader("location", newPath);
 		httpResponse.setStatus(currentLocation.redirect_code);
 		return ;
 	}
+	fixMultipleSlashes(target);
 		
 	if (target.back() != '/')
 		target += '/';
@@ -364,7 +363,7 @@ Response HttpRequest::doRequest(ServerConfig config, const Server& server)
 		if (cgiExtension != "")
 			doCgi(config, cgiExtension, server);
 		else if (method == "GET")
-			methodGet();
+			methodGet(config);
 		else if (method == "POST")
 			methodPost(config);
 		else if (method == "DELETE")

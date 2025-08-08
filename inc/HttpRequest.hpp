@@ -38,7 +38,7 @@ class HttpRequest
 		bool isKeepAlive = true;
 		size_t max_client_body_size;
 		Response httpResponse;
-		void methodGet();
+		void methodGet(ServerConfig config);
 		void methodPost(ServerConfig config);
 		void methodDelete();
 		void doCgi(ServerConfig config, std::string cgiExtension, const Server& server);

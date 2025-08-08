@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:49:33 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/06 16:16:19 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/08 14:29:43 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,20 +14,6 @@
 
 void HttpRequest::checkContentType(std::string responseContentType)
 {
-	if (method == "POST")
-	{
-		if (headers.find("content-type") != headers.end())
-		{
-			std::string requestContentType = headers.at("content-type");
-			if (requestContentType.find(responseContentType) == std::string::npos)
-			{
-				std::cout << "THROWING FROM POST CONTENT_TYPE CHECK" << std::endl;
-				std::cout << "REQUEST CONTENT TYPE: " << requestContentType << std::endl;
-				std::cout << "RESPONSE CONTENT TYPE: " << responseContentType << std::endl;
-				throw ErrorResponseException(415);
-			}
-		}
-	}
 	std::vector<std::string> allowedTypes = 
 	{
 		"text/html",
