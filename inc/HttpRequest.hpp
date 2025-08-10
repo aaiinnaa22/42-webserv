@@ -47,7 +47,6 @@ class HttpRequest
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
 		void checkPathIsSafe(void);
-		// void setErrorPages(std::map<int, std::string> pages, std::string root);
 		void decodeUrl(std::string& decodeThis);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);

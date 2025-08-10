@@ -159,7 +159,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				try 
 				{
 					int result = conn.parseData(buffer, bytes_read, *this);
-					if (result == 2 || result == 1)
+					if (result > 0)
 					{
 						struct epoll_event ev;
 						ev.events = EPOLLIN | EPOLLOUT;
@@ -181,7 +181,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				}
 				catch (...)
 				{
-					std::cout << "unusual error with parsing" << std::endl;
+					std::cout << "unusual error in parsing" << std::endl;
 					conn.resetState();
 				}
 			}
@@ -190,16 +190,16 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
-			std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDIND MESSAGE NOW" << std::endl;
+			//std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDIND MESSAGE NOW" << std::endl;
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "Not found: " << fd << "\n";
 			else
 			{
     			auto &conn = it->second;
-				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
-				std::cout << conn.getResponse().getStatusCode() << std::endl;
-				std::cout << conn.getResponse().getStatusMessage() << std::endl;
+				//std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
+				// std::cout << conn.getResponse().getStatusCode() << std::endl;
+				// std::cout << conn.getResponse().getStatusMessage() << std::endl;
 				try
 				{
 					if (!conn.getResponse().isSent)
@@ -454,7 +454,7 @@ void Server::startServer(std::vector<ServerConfig> servers)
 std::vector<int> Server::get_open_fds() const
 {
 	std::vector<int> open_fds;
-	for (std::map<int, ClientConnection>::const_iterator it = connections.begin(); it != connections.end(); ++it)
+	for (auto it = connections.begin(); it != connections.end(); ++it)
 	{
 		int client_fd = it->second.getFd();
         if (client_fd != -1)
