@@ -128,7 +128,6 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 		responseBody = "<h1>500 Internal Server Error</h1>";
 		setStatus(500);
 	} 	
-	
 	setResponseBody(responseBody);
 	//std::cout << "what i built in built error response\n";
 	std::cout << httpVersion << " " << statusCode << std::endl;

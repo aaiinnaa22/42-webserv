@@ -185,7 +185,7 @@ int ClientConnection::parseHeaders(std::string buffer)
 		}
 		normalize_case(key);
 		std::string value = line.substr(colon + 1);
-		value.erase(0, value.find_first_not_of(" "));
+		value = trimKV(value);
 		if (disallowedDuplicates.count(key) && seenHeaders.count(key))
 		{
 			std::cout << "duplicated header: " << key << std::endl;
@@ -214,6 +214,7 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
     }
     if (part_count > 1)
         throw ErrorResponseException(501);
+
 	//stripping the boundary strings at the start and end
     size_t part_start = body.find(boundary_marker + "\r\n");
     if (part_start == std::string::npos)

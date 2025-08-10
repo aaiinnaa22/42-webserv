@@ -293,7 +293,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 {
 	if (method != "GET" && method != "POST")
 		throw ErrorResponseException(405);
-
 	std::string pathInfo;
 	ssize_t charsWritten;
 	std::string interpreterPath;
@@ -310,11 +309,12 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		nullptr
 	};
 	std::vector<char *> envp = setupCgiEnv(config, pathInfo);
-	
 	int stdinWriteFd = open("tempStdin", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
 	if (stdinWriteFd == -1)
+	{
 		throw ErrorResponseException(500);
-	charsWritten = write(stdinWriteFd, body.c_str(), body.size());//check for 0, also the nonblocking file
+	}
+	charsWritten = write(stdinWriteFd, body.c_str(), body.size());
 	if (charsWritten == -1)
 	{
 		close(stdinWriteFd);
@@ -337,8 +337,6 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		throw ErrorResponseException(500);
 	if (pid == 0)
 	{
-		(void)argv;
-		(void)server;
 		try
 		{
 			if (dup2(stdinFd, STDIN_FILENO) == -1)
@@ -355,19 +353,14 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 			}
 			std::vector<int> fds = server.get_open_fds();
 			for (size_t i = 0; i < fds.size(); ++i)
-    		close(fds[i]);
+    			close(fds[i]);
 			close(stdinFd);
 			close(stdoutFd);
 			if (chdir(currentLocation.root.c_str()) != 0) //test
 				throw ChildError(500, "chdir");
 			execve(interpreterPath.c_str(), argv, envp.data());
-			std::cerr << "Execve call fail, cleaning fds...\n ! \n !\n !\n";
+			std::cerr << "Execve call fail, cleaning fds...\n";
 			throw ChildError(500, "execve");
-			
-			// std::vector<int> fds_to_close = server.get_open_fds();
-			// for (size_t i = 0; i < fds_to_close.size(); ++i)
-			// 	close(fds_to_close[i]);
-			// server.~Server();
 		}
 		catch (ChildError& e)
 		{
@@ -429,7 +422,7 @@ void HttpRequest::doCgi(ServerConfig config, std::string cgiExtension, const Ser
 		char buffer[1000];
 		ssize_t charsRead;
 		//read from stdout
-		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)//READ CHECKS FOR 0 and -1
+		while ((charsRead = read(stdoutReadFd, buffer, sizeof(buffer))) > 0)
 			cgiOutput.append(buffer, charsRead);
 		if (charsRead == -1)
 		{
