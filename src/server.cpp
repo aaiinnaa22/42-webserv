@@ -17,7 +17,6 @@
  Server::~Server(){
 	for (size_t k = 0; k < connections.size(); k++)
 	{
-		std::cout << k << " " << connections[k].getFd() << std::endl;
 		if (connections[k].getFd() != -1)	
 			close(connections[k].getFd());
 	}
@@ -197,9 +196,9 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 			else
 			{
     			auto &conn = it->second;
-				//std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
-				// std::cout << conn.getResponse().getStatusCode() << std::endl;
-				// std::cout << conn.getResponse().getStatusMessage() << std::endl;
+				std::cout << "EPOLLOUT triggered for fd " << fd << "\n";
+				std::cout << conn.getResponse().getStatusCode() << std::endl;
+				std::cout << conn.getResponse().getStatusMessage() << std::endl;
 				try
 				{
 					if (!conn.getResponse().isSent)
