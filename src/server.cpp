@@ -3,11 +3,6 @@
 #include "../inc/ConfigParse.hpp"
 #include "../inc/ClientConnection.hpp"
 #include "../inc/ErrorResponseException.hpp"
-#include <arpa/inet.h> // for inet_ntop, illegal function remove before submitting
-#include <stdlib.h>
-#include <cstring>
-#include <errno.h>
-#include <ctime>
 
  Server::Server() : _on(1), _epollfd(0), _read_count(0), _testflag(0){
 	for (int i = 0; i < 5; i++){
@@ -131,13 +126,7 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 				if (it != connections.end()){
 					it->second.setLastActivity();
 				}
-				// check that nthos and inet_ntop are allowed functions when intra works again
-				uint16_t src_port = ntohs(addr.sin_port); //All this is just printing information do we want int??
-				in_addr_t saddr = addr.sin_addr.s_addr;
-				char src_ip_buf[sizeof("xxx.xxx.xxx.xxx")];
-				const char* cip = inet_ntop(AF_INET, &saddr, src_ip_buf ,sizeof("xxx.xxx.xxx.xxx"));
-				std::cout << "New connection ip: " << cip;
-				std::cout << " Port: " << src_port << std::endl;
+				std::cout << "New connection: " << clientfd << std::endl;
 			}
 		}
 		if ((events[i].events & EPOLLIN) && _testflag == 0)
@@ -189,7 +178,6 @@ void Server::handle_epoll_event(struct epoll_event *events, std::vector<ServerCo
 		}
 		if ((events[i].events & EPOLLOUT))
 		{
-			//std::cout << "EPOLLOUT TRIGGERED, WE ARE SENDIND MESSAGE NOW" << std::endl;
 			auto it = connections.find(fd);
 			if (it == connections.end())
     			std::cerr << "Not found: " << fd << "\n";
@@ -300,7 +288,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 	if ((_epollfd = epoll_create(42)) < 0)
 		throw std::runtime_error("Error! Failed to create epoll");
 
-	struct epoll_event events[1200]; // FIgure better number here, Numeber of events epoll_wait can return?
+	struct epoll_event events[1200]; 
 	struct epoll_event ev;
 	ev.events = EPOLLIN; 
 
@@ -316,7 +304,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 
 	while(gSignalClose == false)
 	{
-		if ((_read_count = epoll_wait(_epollfd, events, 1000, 1000)) < 0 && errno != EINTR) // returns number of events that are ready to be handled
+		if ((_read_count = epoll_wait(_epollfd, events, 1000, 1000)) < 0 && errno != EINTR)
 			throw std::runtime_error("Error! Epoll wait failed");
 		if (_read_count != 0)
 		try{
@@ -329,7 +317,7 @@ int Server::start_epoll(std::vector<ServerConfig> servers)
 			if (conn.getFd() != -1) {
 				std::time_t now = std::time(nullptr);
 				int time_out_timer = now - conn.getLastActivity();
-				if (time_out_timer > 160) {
+				if (time_out_timer > 60) {
 					conn.setIsAlive(false);
 					conn.getResponse().buildErrorResponse(408, fd);
 					struct epoll_event ev;
@@ -448,7 +436,6 @@ void Server::startServer(std::vector<ServerConfig> servers)
 		throw std::runtime_error("Error! epoll_ctl failed");
 	}
 }
-
 
 std::vector<int> Server::get_open_fds() const
 {

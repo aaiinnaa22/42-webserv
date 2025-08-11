@@ -483,9 +483,8 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 void ClientConnection::setLastActivity(void)
 {
 	std::time_t result = std::time(nullptr);
-    std::asctime(std::localtime(&result));
 	this->_lastactivity = result;
-	//std::cout << "set last activity for " << this->fd << " " << this->_lastactivity << std::endl;
+	std::cout << "Set last activity for connection: " << this->fd << " " << std::asctime(std::localtime(&result));
 }
 
 int ClientConnection::getLastActivity(void)
