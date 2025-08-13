@@ -109,7 +109,6 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 	(void)clientFd;
 	//WHAT IF text/html is not allowed in request headers???
 	isSent = false;
-	//std::cout << "build error response call\n";
 	setStatus(statusCode);
 	setResponseHeader("content-type", "text/html");\
 	std::string responseBody;
@@ -129,21 +128,16 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 		setStatus(500);
 	} 	
 	setResponseBody(responseBody);
-	//std::cout << "what i built in built error response\n";
 	std::cout << httpVersion << " " << statusCode << std::endl;
 }
 
 void Response::sendResponse(int clientFd, bool isAlive)
 {
-	// std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
-
 	isSent = false;
 	ssize_t sending;
 	std::string responseHeaders;
 	std::string contentLength;
 	contentLength = std::to_string(body.size());
-
-	//getHeader fail?
 	responseHeaders = httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n";
 	if (statusCode != 204)
 	{
