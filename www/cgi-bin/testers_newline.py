@@ -52,7 +52,6 @@ def test_file_upload_and_check():
     print(f"Checking for uploaded file at: {upload_path}")
     assert upload_path.exists(), f"Expected uploaded file at {upload_path} does not exist."
 
-    # Create temp reference file
     temp_path = Path(__file__).parent / "temp_test_upload.txt"
     with open(temp_path, 'wb') as f:
         f.write(file_content)

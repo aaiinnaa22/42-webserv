@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   ClientConnection.cpp                               :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/08/11 19:00:13 by llaakson          #+#    #+#             */
+/*   Updated: 2025/08/11 19:00:17 by llaakson         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../inc/ClientConnection.hpp"
 
 void	ClientConnection::normalize_case(std::string &key)
@@ -53,6 +65,17 @@ bool is_valid_header_key(const std::string& key)
 		}
 	}
 	return true;
+}
+
+
+std::string trimKV(const std::string& s) 
+{
+    size_t start = s.find_first_not_of(" \t");
+    if (start == std::string::npos)
+        return "";
+
+    size_t end = s.find_last_not_of(" \t");
+    return s.substr(start, end - start + 1);
 }
 
 void ClientConnection::setIsAlive(bool isAlive)
@@ -174,7 +197,7 @@ int ClientConnection::parseHeaders(std::string buffer)
 		}
 		normalize_case(key);
 		std::string value = line.substr(colon + 1);
-		value.erase(0, value.find_first_not_of(" "));
+		value = trimKV(value);
 		if (disallowedDuplicates.count(key) && seenHeaders.count(key))
 		{
 			std::cout << "duplicated header: " << key << std::endl;
@@ -193,6 +216,7 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
 
 	size_t pos = 0;
     int part_count = 0;
+	//counting the parts (allow 1, more is 501 not implemented)
     while ((pos = body.find(boundary_marker, pos)) != std::string::npos)
     {
         if (body.compare(pos, closing_boundary.length(), closing_boundary) == 0)
@@ -202,18 +226,18 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
     }
     if (part_count > 1)
         throw ErrorResponseException(501);
-	
+
+	//stripping the boundary strings at the start and end
     size_t part_start = body.find(boundary_marker + "\r\n");
     if (part_start == std::string::npos)
         throw ErrorResponseException(400);
     part_start += boundary_marker.length() + 2;
-
     size_t part_end = body.find(closing_boundary, part_start);
     if (part_end == std::string::npos)
         throw ErrorResponseException(400);
-
     std::string part = body.substr(part_start, part_end - part_start);
-
+	
+	//separating multipart headers from the actual body
     size_t header_end = part.find("\r\n\r\n");
     if (header_end == std::string::npos)
         throw ErrorResponseException(400);
@@ -223,6 +247,8 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
 	if (content.size() >= 2 && content.substr(content.size() - 2) == "\r\n")
     	content.erase(content.size() - 2);
 	request.setBody(content);
+	
+	//parsing headers (special treatment for content disposition and related params)
     std::istringstream headers_stream(header_section);
     std::string line;
 	while (std::getline(headers_stream, line))
@@ -231,17 +257,32 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
             line.pop_back();
         if (line.empty())
             continue;
-        if (line.find("Content-Disposition:") == 0)
+		
+		size_t colonPos = line.find(':');
+	    if (colonPos == std::string::npos)
+    	    continue;
+		std::string key = line.substr(0, colonPos);
+		key = trimKV(key);
+    	std::string val = line.substr(colonPos + 1);
+		val = trimKV(val);
+		normalize_case(key);
+        if (key == "content-disposition")
         {
-            size_t colon = line.find(":");
-            std::string value = line.substr(colon + 1);
-            value.erase(0, value.find_first_not_of(" \t")); 
+            size_t semiPos = val.find(";");
+            std::string dispositionType;
+			std::string paramsPart;
+			if (semiPos == std::string::npos)
+			{
+            	dispositionType = val;
+            	paramsPart.clear();
+        	}
+			else 
+			{
+            	dispositionType = val.substr(0, semiPos);
+            	paramsPart = val.substr(semiPos + 1);
+        	}
 
-            size_t semi = value.find(";");
-            std::string dispositionType = (semi == std::string::npos) ? value : value.substr(0, semi);
-            std::string paramsPart = (semi == std::string::npos) ? "" : value.substr(semi + 1);
-
-            request.bodyHeaders["Content-Disposition"] = dispositionType;
+            request.bodyHeaders["content-disposition"] = dispositionType;
 
             std::istringstream paramStream(paramsPart);
             std::string param;
@@ -250,36 +291,19 @@ void ClientConnection::parseMultipartBody(const std::string& body, const std::st
                 size_t eq = param.find('=');
                 if (eq != std::string::npos)
                 {
-                    std::string key = param.substr(0, eq);
-                    std::string val = param.substr(eq + 1);
-
-                    key.erase(0, key.find_first_not_of(" \t"));
-                    key.erase(key.find_last_not_of(" \t") + 1);
-
-                    val.erase(0, val.find_first_not_of(" \t"));
-                    val.erase(val.find_last_not_of(" \t") + 1);
-
-                    if (!val.empty() && val.front() == '"' && val.back() == '"')
-                        val = val.substr(1, val.size() - 2);
-
-                    request.formFields[key] = val;
+                    std::string paramKey = param.substr(0, eq);
+                    std::string paramVal = param.substr(eq + 1);
+                    paramKey = trimKV(paramKey);
+                    paramVal = trimKV(paramVal);
+                    if (!paramVal.empty() && paramVal.front() == '"' && paramVal.back() == '"')
+                        paramVal = paramVal.substr(1, paramVal.size() - 2);
+                    request.formFields[paramKey] = paramVal;
                 }
             }
         }
         else
         {
-            size_t colon = line.find(":");
-            if (colon != std::string::npos)
-            {
-                std::string key = line.substr(0, colon);
-                std::string val = line.substr(colon + 1);
-
-                key.erase(key.find_last_not_of(" \t") + 1);
-                val.erase(0, val.find_first_not_of(" \t"));
-                val.erase(val.find_last_not_of(" \t") + 1);
-
                 request.bodyHeaders[key] = val;
-            }
         }
     }
 }
@@ -445,7 +469,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	catch (ErrorResponseException &e)
 	{
 		int shouldClose = e.getResponseStatus();
-		std::cout << "response status from catch: " << shouldClose << std::endl;
+		//std::cout << "response status from catch: " << shouldClose << std::endl;
 		if (shouldClose == 400 || shouldClose == 408 || shouldClose == 413
 			|| shouldClose == 414 || shouldClose == 431 || shouldClose == 505)
 		{
@@ -461,7 +485,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (std::exception& e)
 	{
-		std::cout << e.what() << " WAS CAUGHT IN DO REQUEST!!!" << std::endl;
+		std::cout << e.what() << " caught in DoRequest" << std::endl;
 		response.buildErrorResponse(500, fd, request.getErrorPages());
 		return ERROR;
 	}
@@ -470,13 +494,9 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 
 void ClientConnection::setLastActivity(void)
 {
-	// time_t timestamp;
-	// struct tm datetime = {0};
-  	// _lastactivity = mktime(&datetime);
 	std::time_t result = std::time(nullptr);
-    std::asctime(std::localtime(&result));
 	this->_lastactivity = result;
-	std::cout << "set last activity for " << this->fd << " " << this->_lastactivity << std::endl;
+	std::cout << "Set last activity for connection: " << this->fd << " " << std::asctime(std::localtime(&result));
 }
 
 int ClientConnection::getLastActivity(void)

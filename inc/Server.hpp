@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Server.hpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/08/11 19:01:37 by llaakson          #+#    #+#             */
+/*   Updated: 2025/08/11 19:01:41 by llaakson         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
@@ -11,9 +23,12 @@
 #include <fcntl.h>
 #include <map>
 #include <signal.h>
-#include "ConfigParse.hpp" //ServerConfig
+#include "ConfigParse.hpp"
 #include "ClientConnection.hpp"
 #include "../inc/ErrorResponseException.hpp"
+#include <cstring>
+#include <errno.h>
+#include <ctime>
 
 class ClientConnection;
 

@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   HttpRequest.hpp                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/08/11 19:02:38 by llaakson          #+#    #+#             */
+/*   Updated: 2025/08/11 19:02:42 by llaakson         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #pragma once
 #include <sys/wait.h> //waitpid
 #include <string>
@@ -47,7 +59,6 @@ class HttpRequest
 		void ResponseBodyIsDirectoryListing(void);
 		int checkPathIsDirectory(void);
 		void checkPathIsSafe(void);
-		// void setErrorPages(std::map<int, std::string> pages, std::string root);
 		void decodeUrl(std::string& decodeThis);
 		std::vector<char *>setupCgiEnv(ServerConfig config, std::string pathInfo);
 		void checkQueryString(void);

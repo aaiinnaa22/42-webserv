@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   ClientConnection.hpp                               :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/08/11 19:04:25 by llaakson          #+#    #+#             */
+/*   Updated: 2025/08/11 19:04:35 by llaakson         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #pragma once
 #include <string>
 #include "ConfigParse.hpp"
@@ -29,7 +41,7 @@ class ClientConnection
 		};
 		HttpRequest request;
 		std::string boundary;
-		bool isMultipart = 0;
+		bool isMultipart = false;
 		int expected_body_len;
 		bool isKeepAlive;
 		bool reading_chunk_size = 0;

@@ -109,7 +109,6 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 	(void)clientFd;
 	//WHAT IF text/html is not allowed in request headers???
 	isSent = false;
-	std::cout << "build error response call\n";
 	setStatus(statusCode);
 	setResponseHeader("content-type", "text/html");\
 	std::string responseBody;
@@ -128,23 +127,17 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 		responseBody = "<h1>500 Internal Server Error</h1>";
 		setStatus(500);
 	} 	
-	
 	setResponseBody(responseBody);
-	std::cout << "what i built in built error response\n";
 	std::cout << httpVersion << " " << statusCode << std::endl;
 }
 
 void Response::sendResponse(int clientFd, bool isAlive)
 {
-	std::cout << "SENDING RESPONSE HIHIHI" << std::endl;
-
 	isSent = false;
 	ssize_t sending;
 	std::string responseHeaders;
 	std::string contentLength;
 	contentLength = std::to_string(body.size());
-
-	//getHeader fail?
 	responseHeaders = httpVersion + " " + std::to_string(statusCode) + " " + reasonPhrases.at(statusCode) + "\r\n";
 	if (statusCode != 204)
 	{
@@ -159,11 +152,15 @@ void Response::sendResponse(int clientFd, bool isAlive)
 	else if (isAlive)
 		responseHeaders += std::string("Connection: keep-alive") + "\r\n";
 	responseHeaders += "\r\n";
-	
 	sending = send(clientFd, responseHeaders.c_str(), responseHeaders.size(), MSG_NOSIGNAL);
 	if (sending == -1)
 	{
 		std::cout << "SEND FAILED" << std::endl;
+		throw std::exception();
+	}
+	if (sending == 0 && responseHeaders.size() > 0)
+	{
+		std::cout << "SEND HEADERS DIDN'T WORK AS INTENDED" << std::endl;
 		throw std::exception();
 	}
 	if (statusCode != 204 && (statusCode < 300 || statusCode > 399))
@@ -172,6 +169,11 @@ void Response::sendResponse(int clientFd, bool isAlive)
 		if (sending == -1)
 		{
 			std::cout << "SEND FAILED" << std::endl;
+			throw std::exception();
+		}
+		if (sending == 0 && body.size() > 0)
+		{
+			std::cout << "SEND BODY DIDN'T WORK AS INTENDED" << std::endl;
 			throw std::exception();
 		}
 	}

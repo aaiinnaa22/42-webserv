@@ -1,6 +1,16 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   HttpRequest.cpp                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/08/11 19:01:06 by llaakson          #+#    #+#             */
+/*   Updated: 2025/08/11 19:01:12 by llaakson         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "../../inc/HttpRequest.hpp"
-
 
 //param constructor with client fd
 HttpRequest::HttpRequest(int fd) :clientfd(fd) {}
