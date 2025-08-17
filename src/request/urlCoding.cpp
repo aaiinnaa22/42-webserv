@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:52:57 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/04 17:15:45 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/17 15:00:40 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,24 +66,18 @@ void HttpRequest::encodeUrl(std::string& encodeThis)
     for (size_t i = 0; i < encodeThis.length(); ++i)
     {
         unsigned char c = encodeThis[i];
-        // unreserved characters according to RFC 3986
         if ((c >= 'A' && c <= 'Z') ||
             (c >= 'a' && c <= 'z') ||
             (c >= '0' && c <= '9') ||
             c == '-' || c == '_' || c == '.' || c == '~' ||
-            c == '/')  // allow '/' unencoded
+            c == '/')
         {
             encoded += c;
         }
         else if (c == ' ')
-        {
-            // encode space as %20, not '+'
             encoded += "%20";
-        }
         else
-        {
             encoded += charToPercentHex(c);
-        }
     }
     encodeThis = encoded;
 }

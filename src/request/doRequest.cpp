@@ -6,7 +6,7 @@
 /*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/24 12:53:48 by aalbrech          #+#    #+#             */
-/*   Updated: 2025/08/08 19:17:41 by aalbrech         ###   ########.fr       */
+/*   Updated: 2025/08/17 14:25:09 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,12 +25,8 @@ void HttpRequest::checkMethodAllowed()
 void HttpRequest::ResponseBodyIsDirectoryListing(void)
 {
 	std::string html_content;
-	DIR* dir;
 	std::string responseBody;
 
-	dir = opendir(completePath.c_str());
-	if (dir == nullptr)
-		throw ErrorResponseException(500);
 	
 	html_content = 
 	"<html>\n"
@@ -41,16 +37,15 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 
 	responseBody = html_content;
 	
-	struct dirent* entry;
-	while ((entry = readdir(dir)) != nullptr) //errcheck?
+	for (auto entry : std::filesystem::directory_iterator(completePath))
 	{
-		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_name[0] == '.')
+		if (strcmp(entry.path().c_str(), ".") == 0 || strcmp(entry.path().c_str(), "..") == 0 || entry.path().string().at(0) == '.')
 			continue ;
+		std::string strEntryName = entry.path().filename();
 		std::string strEntryLink = originalPath;
 		if (!strEntryLink.empty() && strEntryLink.back() != '/')
 			strEntryLink += '/'; 
-		strEntryLink += entry->d_name;
-		std::string strEntryName = entry->d_name;
+		strEntryLink += strEntryName;
 		encodeUrl(strEntryLink);
 		escapeHtml(strEntryName);
 		html_content = "<li><a href=\"" + strEntryLink + "\">" + strEntryName + "</a></li>\n"; 
@@ -64,7 +59,6 @@ void HttpRequest::ResponseBodyIsDirectoryListing(void)
 	
 	responseBody += html_content;
 	httpResponse.setResponseBody(responseBody);
-	closedir(dir);
 }
 
 
@@ -135,8 +129,14 @@ static bool fileNameIsSafe(std::string fileName)
 	return (true);
 }
 
-static std::string generateSuccessPostHtml(std::string pathToNewFile)
+static std::string generateSuccessPostHtml(std::string pathToNewFile, bool fileExistedBefore)
 {
+	std::string createdOrReplaced;
+	if (!fileExistedBefore)
+		createdOrReplaced = "uploaded";
+	else 
+		createdOrReplaced = "replaced";
+		
 	std::string html = 
 		"<!DOCTYPE html>\n"
 		"<html lang=\"en\">\n"
@@ -145,8 +145,8 @@ static std::string generateSuccessPostHtml(std::string pathToNewFile)
 		"  <title>Upload Successful</title>\n"
 		"</head>\n"
 		"<body>\n"
-		"  <h1>File Uploaded Successfully</h1>\n"
-		"  <p>Your file was uploaded and is now available at:</p>\n"
+		"  <h1>File " + createdOrReplaced + " successfully</h1>\n"
+		"  <p>Your file was " + createdOrReplaced + " and is available at:</p>\n"
 		"  <a href=\"" + pathToNewFile + "\">View the uploaded file</a>\n"
 		"</body>\n"
 		"</html>\n";
@@ -218,6 +218,8 @@ void HttpRequest::methodPost(ServerConfig config)
 		throw ErrorResponseException(500);
 	}
 	setContentType(1);
+	std::filesystem::path checkExist = completePath;
+	bool fileExistedBefore = std::filesystem::exists(checkExist);
 	fd = open(completePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd == -1)
 		throw ErrorResponseException(500);
@@ -231,9 +233,12 @@ void HttpRequest::methodPost(ServerConfig config)
 	encodeUrl(urlLocOfPost);
 	httpResponse.setResponseHeader("content-type", "text/html");
 	httpResponse.setResponseHeader("location", urlLocOfPost);
-	std::string htmlBody = generateSuccessPostHtml(urlLocOfPost);
+	std::string htmlBody = generateSuccessPostHtml(urlLocOfPost, fileExistedBefore);
 	httpResponse.setResponseBody(htmlBody);
-	httpResponse.setStatus(201);
+	if (!fileExistedBefore)
+		httpResponse.setStatus(201);
+	else 
+		httpResponse.setStatus(200);
 }
 
 void HttpRequest::methodDelete(void)

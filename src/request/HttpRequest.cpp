@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HttpRequest.cpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/08/11 19:01:06 by llaakson          #+#    #+#             */
-/*   Updated: 2025/08/11 19:01:12 by llaakson         ###   ########.fr       */
+/*   Updated: 2025/08/17 14:59:48 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -80,6 +80,5 @@ void HttpRequest::dump() const {
     for (const auto& [key, value] : headers) {
         std::cout << "  " << key << ": " << value << "\n";
     }
-	//std::cout << "Body: " << body << std::endl;
 	std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
 }
