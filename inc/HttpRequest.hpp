@@ -3,36 +3,32 @@
 /*                                                        :::      ::::::::   */
 /*   HttpRequest.hpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: llaakson <llaakson@student.hive.fi>        +#+  +:+       +#+        */
+/*   By: aalbrech <aalbrech@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/08/11 19:02:38 by llaakson          #+#    #+#             */
-/*   Updated: 2025/08/11 19:02:42 by llaakson         ###   ########.fr       */
+/*   Updated: 2025/08/18 12:45:40 by aalbrech         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #pragma once
-#include <sys/wait.h> //waitpid
+#include <sys/wait.h>
 #include <string>
 #include <sstream>
 #include <map>
-#include <fcntl.h>     // open
-#include <filesystem> //for remove in DELETE method, allowed?
+#include <fcntl.h>
+#include <filesystem>
 #include "ConfigParse.hpp"
-#include <dirent.h> //opendir, closedir....
-#include <cstring> //strcmp
-#include <sys/stat.h> //stat()
+#include <cstring>
+#include <sys/stat.h>
 #include "Response.hpp"
 #include "ErrorResponseException.hpp"
-#include <string> //FOR ENDS_WITH???
+#include <string>
 #include <cstdlib>
 
 class Server;
 
 class HttpRequest
 {
-	//requestLine method path httpVersion
-	// one or more headers
-	// optional body
 	private:
 		std::string method;
 		std::string path;
@@ -74,7 +70,6 @@ class HttpRequest
 		void encodeUrl(std::string& encodeThis);
 		void postIsMultipartBody();
 		void fixMultipleSlashes(std::string &fixThis);
-		//void normalizeConfigPaths(); //?
 
 	public:
 		std::map<std::string, std::string> bodyHeaders;
