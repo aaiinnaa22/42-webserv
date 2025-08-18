@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 		std::cout << "No config file provided. Using default: basic.conf" << std::endl;
 	}
 	signal(SIGINT, signal_handler);
+	signal(SIGQUIT, signal_handler);
 	ConfigParse parser;
 	try 
 	{

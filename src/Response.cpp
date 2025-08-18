@@ -107,7 +107,6 @@ std::string Response::toString() const
 void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, std::string> chosenErrorPages)
 {
 	(void)clientFd;
-	//WHAT IF text/html is not allowed in request headers???
 	isSent = false;
 	setStatus(statusCode);
 	setResponseHeader("content-type", "text/html");\
@@ -128,7 +127,7 @@ void Response::buildErrorResponse(int statusCode, int clientFd, std::map<int, st
 		setStatus(500);
 	} 	
 	setResponseBody(responseBody);
-	std::cout << httpVersion << " " << statusCode << std::endl;
+	// std::cout << httpVersion << " " << statusCode << std::endl;
 }
 
 void Response::sendResponse(int clientFd, bool isAlive)

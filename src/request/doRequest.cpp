@@ -73,7 +73,6 @@ void HttpRequest::methodGet(ServerConfig config)
 		if (!currentLocation.index.empty())
 		{
 			completePath += currentLocation.index;
-			std::cout << "index html path: " << completePath << std::endl;
 			try
 			{
 				checkPathIsSafe();

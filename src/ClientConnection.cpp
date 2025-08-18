@@ -485,7 +485,7 @@ ClientConnection::parseResult ClientConnection::parseData(const char *data, size
 	}
 	catch (std::exception& e)
 	{
-		std::cout << e.what() << " caught in DoRequest" << std::endl;
+		//std::cout << e.what() << " caught in DoRequest" << std::endl;
 		response.buildErrorResponse(500, fd, request.getErrorPages());
 		return ERROR;
 	}

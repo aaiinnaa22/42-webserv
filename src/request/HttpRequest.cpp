@@ -73,12 +73,12 @@ std::map<int, std::string> HttpRequest::getErrorPages(void)
 }
 
 void HttpRequest::dump() const {
-    std::cout << "Method: " << method << "\n";
-    std::cout << "Path: " << path << "\n";
+    std::cout << "Method: " << method << " ";
+    std::cout << "Path: " << path << " ";
     std::cout << "Version: " << httpVersion << "\n";
-    std::cout << "Headers:\n";
-    for (const auto& [key, value] : headers) {
-        std::cout << "  " << key << ": " << value << "\n";
-    }
-	std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
+    // std::cout << "Headers:\n";
+    // for (const auto& [key, value] : headers) {
+    //     std::cout << "  " << key << ": " << value << "\n";
+    // }
+	// std::cout << "Keep alive/ close boolean: " << isKeepAlive << std::endl;
 }
