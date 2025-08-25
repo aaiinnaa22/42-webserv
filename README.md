@@ -35,7 +35,7 @@ The server works like a real web server:
 
 ☆ RUN THE CODE ☆ ☆ ☆ ☆ ☆ ☆
 
-In terminal, clone the repo and compile
+In terminal, clone the repo and compile:
 
 ```
 git clone https://github.com/aaiinnaa22/42-webserv.git
@@ -51,11 +51,11 @@ You can run the program with a configuration file from conf/, or give no program
 
 Now the webserver is running. You can test it in two ways.
 
-With a web browser:
+With a **web browser**:
 
 Open a web browser (recommended: chrome) and type in http://localhost:8081 (or another port supported).
 
-With telnet:
+With **telnet**:
 
 Open a new terminal window and start a telnet session: 
 ```
